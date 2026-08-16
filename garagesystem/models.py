@@ -18,6 +18,23 @@ class User(db.Model, UserMixin):
     def __repr__(self):
         return f'User({self.username})'
 
+    def get_reset_token(self, expires_sec=1800):
+        from flask import current_app
+        from itsdangerous import URLSafeTimedSerializer
+        s = URLSafeTimedSerializer(current_app.config['SECRET_KEY'])
+        return s.dumps(self.id, salt='password-reset')
+
+    @staticmethod
+    def verify_reset_token(token, expires_sec=1800):
+        from flask import current_app
+        from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
+        s = URLSafeTimedSerializer(current_app.config['SECRET_KEY'])
+        try:
+            user_id = s.loads(token, salt='password-reset', max_age=expires_sec)
+        except (BadSignature, SignatureExpired):
+            return None
+        return db.session.get(User, user_id)
+
 
 class Car(db.Model):
     id = db.Column(db.Integer, primary_key=True)

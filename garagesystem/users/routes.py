@@ -3,7 +3,8 @@ from flask_login import login_user, logout_user, login_required, current_user
 
 from garagesystem import db, bcrypt
 from garagesystem.models import User
-from garagesystem.users.forms import LoginForm, RegisterForm
+from garagesystem.users.forms import LoginForm, RegisterForm, RequestResetForm, ResetPasswordForm
+from garagesystem.users.utils import send_password_reset_email
 
 users = Blueprint('users', __name__)
 
@@ -61,3 +62,40 @@ def register():
         return redirect(url_for('users.login'))
 
     return render_template('users/register.html', title='Create Account', form=form)
+
+
+@users.route('/reset_password', methods=['GET', 'POST'])
+def reset_request():
+    form = RequestResetForm()
+    if form.validate_on_submit():
+        user = User.query.filter_by(email=form.email.data).first()
+        if user:
+            token = user.get_reset_token()
+            reset_url = url_for('users.reset_token', token=token, _external=True)
+            send_password_reset_email(user, reset_url)
+        # Same message whether or not the email exists, so we don't leak which emails are registered.
+        flash('If an account exists for that email, a reset link has been sent.', 'info')
+        return redirect(url_for('users.login'))
+
+    return render_template('users/reset_request.html', title='Reset Password', form=form)
+
+
+@users.route('/reset_password/<token>', methods=['GET', 'POST'])
+def reset_token(token):
+    user = User.verify_reset_token(token)
+    if user is None:
+        flash('That reset link is invalid or has expired.', 'warning')
+        return redirect(url_for('users.reset_request'))
+
+    form = ResetPasswordForm()
+    if form.validate_on_submit():
+        hashed_pw = bcrypt.generate_password_hash(form.password.data).decode('utf-8')
+        user.password = hashed_pw
+        db.session.commit()
+        # Drop the current session so the new password takes effect immediately
+        # and any other active session (e.g. the one that made this reset feel necessary) is cleared.
+        logout_user()
+        flash('Your password has been updated. You can now log in.', 'success')
+        return redirect(url_for('users.login'))
+
+    return render_template('users/reset_password.html', title='Reset Password', form=form)

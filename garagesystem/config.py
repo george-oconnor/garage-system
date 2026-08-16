@@ -49,6 +49,14 @@ class Config:
     # Which provider to use: 'regcheck' or 'vehicledataglobal'
     VEHICLE_LOOKUP_PROVIDER = _config.get('VEHICLE_LOOKUP_PROVIDER') or 'regcheck'
 
+    # Microsoft Graph API — used to send password reset emails via an Azure AD
+    # app registration (application permission: Mail.Send, admin-consented).
+    MSGRAPH_TENANT_ID = _config.get('MSGRAPH_TENANT_ID') or os.environ.get('MSGRAPH_TENANT_ID') or ''
+    MSGRAPH_CLIENT_ID = _config.get('MSGRAPH_CLIENT_ID') or os.environ.get('MSGRAPH_CLIENT_ID') or ''
+    MSGRAPH_CLIENT_SECRET = _config.get('MSGRAPH_CLIENT_SECRET') or os.environ.get('MSGRAPH_CLIENT_SECRET') or ''
+    # Mailbox the reset email is sent from (must be a real mailbox the app registration can send as).
+    MSGRAPH_SENDER = _config.get('MSGRAPH_SENDER') or os.environ.get('MSGRAPH_SENDER') or ''
+
     APP_NAME = 'Garage System'
     CURRENCY_SYMBOL = '€'
     MILEAGE_UNIT = 'km'
