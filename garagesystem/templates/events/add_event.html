@@ -72,8 +72,8 @@
                             <div class="mb-3">
                                 {{ form.mileage_at_event.label(class="form-label") }}
                                 <div class="input-group">
-                                    {{ form.mileage_at_event(class="form-control", placeholder="km at event") }}
-                                    <span class="input-group-text">km</span>
+                                    {{ form.mileage_at_event(class="form-control", placeholder="mileage at event") }}
+                                    {{ form.mileage_at_event_unit(class="form-select", style="max-width:90px;") }}
                                 </div>
                             </div>
                         </div>

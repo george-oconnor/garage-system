@@ -39,6 +39,11 @@ PROVIDER_TYPES = [
     ('ThirdParty', 'Third-party garage / provider'),
 ]
 
+MILEAGE_UNITS = [
+    ('km', 'km'),
+    ('mi', 'mi'),
+]
+
 
 class AddEventForm(FlaskForm):
     title = StringField('Title', validators=[DataRequired(), Length(max=200)])
@@ -47,6 +52,7 @@ class AddEventForm(FlaskForm):
                                 validators=[DataRequired()], default='Self')
     date = DateField('Date', validators=[DataRequired()], default=dt_date.today)
     mileage_at_event = IntegerField('Mileage at Event', validators=[Optional()])
+    mileage_at_event_unit = SelectField('Unit', choices=MILEAGE_UNITS, default='km', validators=[Optional()])
     garage_name = StringField('Garage / Provider', validators=[Optional(), Length(max=200)])
     garage_address = StringField('Address', validators=[Optional(), Length(max=300)])
     invoice_number = StringField('Invoice / Reference No.', validators=[Optional(), Length(max=100)])
@@ -70,6 +76,7 @@ class EditEventForm(FlaskForm):
                                 validators=[DataRequired()])
     date = DateField('Date', validators=[DataRequired()])
     mileage_at_event = IntegerField('Mileage at Event', validators=[Optional()])
+    mileage_at_event_unit = SelectField('Unit', choices=MILEAGE_UNITS, default='km', validators=[Optional()])
     garage_name = StringField('Garage / Provider', validators=[Optional(), Length(max=200)])
     garage_address = StringField('Address', validators=[Optional(), Length(max=300)])
     invoice_number = StringField('Invoice / Reference No.', validators=[Optional(), Length(max=100)])

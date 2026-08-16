@@ -30,6 +30,11 @@ TRANSMISSIONS = [
     ('Other', 'Other'),
 ]
 
+MILEAGE_UNITS = [
+    ('km', 'km'),
+    ('mi', 'mi'),
+]
+
 
 class AddCarForm(FlaskForm):
     registration = StringField('Registration', validators=[DataRequired(), Length(max=20)])
@@ -43,9 +48,11 @@ class AddCarForm(FlaskForm):
     fuel_type = SelectField('Fuel Type', choices=FUEL_TYPES, validators=[Optional()])
     transmission = SelectField('Transmission', choices=TRANSMISSIONS, validators=[Optional()])
     current_mileage = IntegerField('Current Mileage', validators=[Optional()])
+    current_mileage_unit = SelectField('Unit', choices=MILEAGE_UNITS, default='km', validators=[Optional()])
     purchase_date = DateField('Purchase Date', validators=[Optional()])
     purchase_price = FloatField('Purchase Price (€)', validators=[Optional()])
     purchase_mileage = IntegerField('Mileage at Purchase', validators=[Optional()])
+    purchase_mileage_unit = SelectField('Unit', choices=MILEAGE_UNITS, default='km', validators=[Optional()])
     notes = TextAreaField('Notes', validators=[Optional()])
     submit = SubmitField('Save Car')
 
@@ -69,9 +76,11 @@ class EditCarForm(FlaskForm):
     fuel_type = SelectField('Fuel Type', choices=FUEL_TYPES, validators=[Optional()])
     transmission = SelectField('Transmission', choices=TRANSMISSIONS, validators=[Optional()])
     current_mileage = IntegerField('Current Mileage', validators=[Optional()])
+    current_mileage_unit = SelectField('Unit', choices=MILEAGE_UNITS, default='km', validators=[Optional()])
     purchase_date = DateField('Purchase Date', validators=[Optional()])
     purchase_price = FloatField('Purchase Price (€)', validators=[Optional()])
     purchase_mileage = IntegerField('Mileage at Purchase', validators=[Optional()])
+    purchase_mileage_unit = SelectField('Unit', choices=MILEAGE_UNITS, default='km', validators=[Optional()])
     notes = TextAreaField('Notes', validators=[Optional()])
     image = FileField('Photo', validators=[Optional(), FileAllowed(['jpg', 'jpeg', 'png', 'webp'], 'Images only')])
     submit = SubmitField('Update Car')
@@ -79,6 +88,7 @@ class EditCarForm(FlaskForm):
 
 class AddMileageForm(FlaskForm):
     mileage = IntegerField('Mileage', validators=[DataRequired()])
+    mileage_unit = SelectField('Unit', choices=MILEAGE_UNITS, default='km', validators=[Optional()])
     date = DateField('Date', validators=[DataRequired()], default=dt_date.today)
     notes = StringField('Notes', validators=[Optional(), Length(max=300)])
     submit = SubmitField('Log Mileage')

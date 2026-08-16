@@ -247,7 +247,7 @@
                         {{ mileage_form.mileage.label(class="form-label") }}
                         <div class="input-group">
                             {{ mileage_form.mileage(class="form-control", placeholder="Enter current odometer reading") }}
-                            <span class="input-group-text">km</span>
+                            {{ mileage_form.mileage_unit(class="form-select", style="max-width:90px;") }}
                         </div>
                     </div>
                     <div class="mb-3">

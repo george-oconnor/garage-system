@@ -6,7 +6,10 @@ import os, uuid
 from garagesystem import db
 from garagesystem.models import Car, MileageLog
 from garagesystem.cars.forms import PlateSearchForm, AddCarForm, EditCarForm, AddMileageForm
-from garagesystem.cars.utils import parse_irish_plate, lookup_vehicle_api, normalize_fuel_type, normalize_transmission, fetch_car_image
+from garagesystem.cars.utils import (
+    parse_irish_plate, lookup_vehicle_api, normalize_fuel_type, normalize_transmission,
+    fetch_car_image, convert_mileage_to_km,
+)
 
 cars = Blueprint('cars', __name__)
 
@@ -89,10 +92,10 @@ def add_car_details():
             engine_size=form.engine_size.data or None,
             fuel_type=form.fuel_type.data or None,
             transmission=form.transmission.data or None,
-            current_mileage=form.current_mileage.data,
+            current_mileage=convert_mileage_to_km(form.current_mileage.data, form.current_mileage_unit.data),
             purchase_date=form.purchase_date.data,
             purchase_price=form.purchase_price.data,
-            purchase_mileage=form.purchase_mileage.data,
+            purchase_mileage=convert_mileage_to_km(form.purchase_mileage.data, form.purchase_mileage_unit.data),
             notes=form.notes.data or None,
             lookup_data=prefill.get('lookup_data') or None,
             image_url=fetch_car_image(form.make.data.strip(), form.model.data.strip(), form.year.data),
@@ -149,10 +152,10 @@ def edit_car(car_id):
             car.engine_size = form.engine_size.data or None
             car.fuel_type = form.fuel_type.data or None
             car.transmission = form.transmission.data or None
-            car.current_mileage = form.current_mileage.data
+            car.current_mileage = convert_mileage_to_km(form.current_mileage.data, form.current_mileage_unit.data)
             car.purchase_date = form.purchase_date.data
             car.purchase_price = form.purchase_price.data
-            car.purchase_mileage = form.purchase_mileage.data
+            car.purchase_mileage = convert_mileage_to_km(form.purchase_mileage.data, form.purchase_mileage_unit.data)
             car.notes = form.notes.data or None
             # Handle custom image upload
             upload = form.image.data
@@ -196,17 +199,18 @@ def add_mileage(car_id):
     car = Car.query.get_or_404(car_id)
     form = AddMileageForm()
     if form.validate_on_submit():
+        mileage_km = convert_mileage_to_km(form.mileage.data, form.mileage_unit.data)
         log = MileageLog(
             car_id=car_id,
-            mileage=form.mileage.data,
+            mileage=mileage_km,
             date=form.date.data,
             notes=form.notes.data or None,
         )
         db.session.add(log)
-        if car.current_mileage is None or form.mileage.data > car.current_mileage:
-            car.current_mileage = form.mileage.data
+        if car.current_mileage is None or mileage_km > car.current_mileage:
+            car.current_mileage = mileage_km
         db.session.commit()
-        flash(f'Mileage of {form.mileage.data:,} km logged.', 'success')
+        flash(f'Mileage of {mileage_km:,} km logged.', 'success')
     else:
         for field_errors in form.errors.values():
             for error in field_errors:

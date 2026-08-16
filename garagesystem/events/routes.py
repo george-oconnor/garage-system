@@ -7,6 +7,7 @@ from garagesystem import db
 from garagesystem.models import Car, ServiceEvent, EventLineItem, MileageLog
 from garagesystem.events.forms import AddEventForm, EditEventForm, AddLineItemForm
 from garagesystem.events.utils import generate_event_pdf
+from garagesystem.cars.utils import convert_mileage_to_km
 
 events = Blueprint('events', __name__)
 
@@ -116,13 +117,14 @@ def add_event(car_id):
     form = AddEventForm()
     if form.validate_on_submit():
         is_third_party = form.provider_type.data == 'ThirdParty'
+        mileage_km = convert_mileage_to_km(form.mileage_at_event.data, form.mileage_at_event_unit.data)
         event = ServiceEvent(
             car_id=car_id,
             title=form.title.data.strip(),
             event_type=form.event_type.data,
             provider_type=form.provider_type.data,
             date=form.date.data,
-            mileage_at_event=form.mileage_at_event.data,
+            mileage_at_event=mileage_km,
             garage_name=(form.garage_name.data.strip() if form.garage_name.data else None) if is_third_party else None,
             garage_address=(form.garage_address.data.strip() if form.garage_address.data else None) if is_third_party else None,
             invoice_number=(form.invoice_number.data.strip() if form.invoice_number.data else None) if is_third_party else None,
@@ -132,9 +134,9 @@ def add_event(car_id):
         )
         db.session.add(event)
         # Update car mileage if this reading is higher
-        if form.mileage_at_event.data:
-            if car.current_mileage is None or form.mileage_at_event.data > car.current_mileage:
-                car.current_mileage = form.mileage_at_event.data
+        if mileage_km:
+            if car.current_mileage is None or mileage_km > car.current_mileage:
+                car.current_mileage = mileage_km
         db.session.flush()  # assign event.id for FK / filenames
         _sync_mileage_log(car, event)
         # Handle invoice PDF upload (third-party only)
@@ -178,7 +180,7 @@ def edit_event(event_id):
         event.event_type = form.event_type.data
         event.provider_type = form.provider_type.data
         event.date = form.date.data
-        event.mileage_at_event = form.mileage_at_event.data
+        event.mileage_at_event = convert_mileage_to_km(form.mileage_at_event.data, form.mileage_at_event_unit.data)
         event.notes = form.notes.data or None
         event.date_modified = datetime.utcnow()
 

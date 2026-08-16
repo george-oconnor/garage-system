@@ -2,6 +2,19 @@ import re
 import requests
 from flask import current_app
 
+KM_PER_MILE = 1.60934
+
+
+def convert_mileage_to_km(value, unit):
+    """Convert a mileage reading to km if it was entered in miles.
+
+    All mileage is stored in km (see config.MILEAGE_UNIT); this lets input
+    forms accept either unit while keeping storage/display consistent.
+    """
+    if value is None or unit != 'mi':
+        return value
+    return round(value * KM_PER_MILE)
+
 IRISH_COUNTY_CODES = {
     'C': 'Cork', 'CE': 'Clare', 'CN': 'Cavan', 'CW': 'Carlow',
     'D': 'Dublin', 'DL': 'Donegal',
