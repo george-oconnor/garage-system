@@ -6,6 +6,7 @@ from flask_bcrypt import Bcrypt
 from flask_login import LoginManager
 from flask_session import Session
 from sqlalchemy import MetaData
+from werkzeug.middleware.proxy_fix import ProxyFix
 import sentry_sdk
 
 metadata = MetaData(naming_convention={
@@ -31,6 +32,14 @@ def create_app():
 
     app = Flask(__name__)
     app.config.from_object(Config)
+
+    # Behind nginx -> trust one proxy hop for X-Forwarded-{Proto,For,Host}
+    # so request.is_secure/url_for(_external=True) reflect the real client.
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+    app.config['SESSION_COOKIE_SECURE'] = True
+    app.config['SESSION_COOKIE_HTTPONLY'] = True
+    app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+    app.config['PREFERRED_URL_SCHEME'] = 'https'
 
     if app.config.get('SENTRY_DSN'):
         sentry_sdk.init(
