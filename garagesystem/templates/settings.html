@@ -1,0 +1,103 @@
+{% extends "layout.html" %}
+{% block content %}
+
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('main.home') }}">Home</a></li>
+        <li class="breadcrumb-item active">Settings</li>
+    </ol>
+</nav>
+
+<div class="row justify-content-center">
+    <div class="col-lg-7">
+
+        <h4 class="mb-4"><i class="bi bi-gear me-2"></i>Settings</h4>
+
+        <form method="POST" action="{{ url_for('main.settings') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+            <!-- Vehicle Lookup -->
+            <div class="card mb-4">
+                <div class="card-header fw-semibold">
+                    <i class="bi bi-search me-2"></i>Vehicle Lookup
+                </div>
+                <div class="card-body">
+
+                    <div class="mb-4">
+                        <label class="form-label fw-semibold">Active Provider</label>
+                        <div class="d-flex gap-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="vehicle_lookup_provider"
+                                       id="provider_regcheck" value="regcheck"
+                                       {% if config['VEHICLE_LOOKUP_PROVIDER'] != 'vehicledataglobal' %}checked{% endif %}>
+                                <label class="form-check-label" for="provider_regcheck">
+                                    regcheck.org.uk
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="vehicle_lookup_provider"
+                                       id="provider_vdg" value="vehicledataglobal"
+                                       {% if config['VEHICLE_LOOKUP_PROVIDER'] == 'vehicledataglobal' %}checked{% endif %}>
+                                <label class="form-check-label" for="provider_vdg">
+                                    VehicleDataGlobal
+                                </label>
+                            </div>
+                        </div>
+                        <div class="form-text">Selecting a provider with no credentials configured will silently skip the lookup.</div>
+                    </div>
+
+                    <hr>
+
+                    <h6 class="text-muted mb-3">regcheck.org.uk</h6>
+                    <div class="mb-3">
+                        <label for="vehicle_lookup_username" class="form-label">Username / Email</label>
+                        <input type="text" class="form-control font-monospace"
+                               id="vehicle_lookup_username" name="vehicle_lookup_username"
+                               value="{{ config['VEHICLE_LOOKUP_USERNAME'] }}"
+                               placeholder="your@email.com" autocomplete="off">
+                        <div class="form-text">Your registered regcheck.org.uk username.</div>
+                    </div>
+
+                    <hr>
+
+                    <h6 class="text-muted mb-3">VehicleDataGlobal</h6>
+                    <div class="mb-3">
+                        <label for="vehicledataglobal_api_key" class="form-label">API Key</label>
+                        <input type="text" class="form-control font-monospace"
+                               id="vehicledataglobal_api_key" name="vehicledataglobal_api_key"
+                               value="{{ config['VEHICLEDATAGLOBAL_API_KEY'] }}"
+                               placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" autocomplete="off">
+                        <div class="form-text">Bearer token from your VehicleDataGlobal account.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="vehicledataglobal_endpoint" class="form-label">API Endpoint URL</label>
+                        <input type="text" class="form-control font-monospace"
+                               id="vehicledataglobal_endpoint" name="vehicledataglobal_endpoint"
+                               value="{{ config['VEHICLEDATAGLOBAL_ENDPOINT'] }}"
+                               placeholder="https://...vehicledataglobal.com/api/datapackage/VehicleData">
+                        <div class="form-text">Base URL from your VehicleDataGlobal API documentation.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="vehicledataglobal_package" class="form-label">Package Name</label>
+                        <input type="text" class="form-control font-monospace"
+                               id="vehicledataglobal_package" name="vehicledataglobal_package"
+                               value="{{ config['VEHICLEDATAGLOBAL_PACKAGE'] }}"
+                               placeholder="VehicleAndMotTests">
+                        <div class="form-text">The data package configured in your VehicleDataGlobal control panel.</div>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-floppy me-1"></i>Save Settings
+                </button>
+                <a href="{{ url_for('main.home') }}" class="btn btn-outline-secondary">Cancel</a>
+            </div>
+        </form>
+
+    </div>
+</div>
+
+{% endblock content %}

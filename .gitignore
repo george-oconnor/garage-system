@@ -1,0 +1,16 @@
+*.pyc
+__pycache__/
+instance/
+flask_session/
+.env
+.venv/
+venv/
+*.db
+*.sqlite3
+.DS_Store
+Thumbs.db
+migrations/
+*.log
+garagesystem/static/car_images/*
+garagesystem/static/invoices/*
+garagesystem/static/nct_certs/*

@@ -1,0 +1,454 @@
+{% extends "layout.html" %}
+{% block content %}
+
+{% set event_type_badges = {
+    'Service': 'primary', 'Repair': 'danger', 'Maintenance': 'warning text-dark',
+    'NCT': 'info text-dark', 'Tax': 'secondary', 'Insurance': 'secondary',
+    'Inspection': 'info text-dark', 'Modification': 'dark', 'Purchase': 'success', 'Other': 'secondary'
+} %}
+
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('main.home') }}">Home</a></li>
+        <li class="breadcrumb-item"><a href="{{ url_for('cars.cars_list') }}">My Cars</a></li>
+        <li class="breadcrumb-item active">{{ car.registration }}</li>
+    </ol>
+</nav>
+
+<!-- Header -->
+<div class="d-flex justify-content-between align-items-start mb-4">
+    <div>
+        <h2 class="mb-1">
+            <span class="reg-plate me-3">{{ car.registration | format_reg }}</span>
+            {{ car.make }} {{ car.model }}
+        </h2>
+        <p class="text-muted mb-0">
+            {% if car.year %}{{ car.year }}{% endif %}
+            {% if car.fuel_type %} · {{ car.fuel_type }}{% endif %}
+            {% if car.engine_size %} · {{ car.engine_size }}{% endif %}
+            {% if car.transmission %} · {{ car.transmission }}{% endif %}
+            {% if car.color %} · {{ car.color }}{% endif %}
+        </p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('cars.edit_car', car_id=car.id) }}" class="btn btn-outline-primary btn-sm">
+            <i class="bi bi-pencil me-1"></i>Edit
+        </a>
+        <button type="button" class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#deleteCarModal">
+            <i class="bi bi-trash me-1"></i>Delete
+        </button>
+    </div>
+</div>
+
+{# ---------- Mileage & Timeline Chart ---------- #}
+{# Mileage logs that came from a service event are skipped on the graph — the event
+   itself is already drawn as a triangle at the same (date, mileage).
+   The purchase reading is also drawn separately (star), so drop its log too. #}
+{% set _has_purchase = car.purchase_date and car.purchase_mileage %}
+{% set _chart_logs = [] %}
+{% for _l in car.ordered_mileage | sort(attribute='date') %}
+    {% if _l.source_event_id %}
+        {# skip: rendered as event triangle #}
+    {% elif _has_purchase and _l.date == car.purchase_date and _l.mileage == car.purchase_mileage %}
+        {# skip: rendered as purchase star #}
+    {% else %}
+        {% set _ = _chart_logs.append(_l) %}
+    {% endif %}
+{% endfor %}
+{% set _chart_events = [] %}
+{% for _e in car.ordered_events %}
+    {% if _e.mileage_at_event %}{% set _ = _chart_events.append(_e) %}{% endif %}
+{% endfor %}
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h6 class="mb-0"><i class="bi bi-graph-up me-2"></i>Mileage &amp; Service Timeline</h6>
+        {% if _chart_logs %}
+        <small class="text-muted">{{ _chart_logs|length }} reading(s) · {{ _chart_events|length }} event(s)</small>
+        {% endif %}
+    </div>
+    <div class="card-body">
+        {% if _chart_logs or _chart_events or _has_purchase %}
+        <div style="position:relative; height:280px;">
+            <canvas id="mileageChart"></canvas>
+        </div>
+        {% else %}
+        <div class="text-center py-4 text-muted small">
+            <i class="bi bi-graph-up fs-3 d-block mb-2 opacity-25"></i>
+            No mileage data yet. Log a reading or add a service event with mileage to see the timeline.
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Left column: Car details + purchase info -->
+    <div class="col-md-4">
+        {% set display_img = url_for('static', filename='car_images/' + car.image_custom) if car.image_custom else car.image_url %}
+        {% if display_img %}
+        <div class="card mb-3 overflow-hidden">
+            <img src="{{ display_img }}" alt="{{ car.make }} {{ car.model }}"
+                 class="card-img-top" style="max-height:220px;object-fit:cover;background:#f8f9fa;">
+        </div>
+        {% endif %}
+        <div class="card mb-3">
+            <div class="card-header"><h6 class="mb-0"><i class="bi bi-info-circle me-2"></i>Details</h6></div>
+            <div class="card-body p-0">
+                <table class="table table-sm table-borderless mb-0">
+                    <tbody>
+                        {% if car.vin %}
+                        <tr><th class="ps-3 text-muted" style="width:45%">VIN</th><td><code class="small">{{ car.vin }}</code></td></tr>
+                        {% endif %}
+                        <tr>
+                            <th class="ps-3 text-muted">Current Mileage</th>
+                            <td>
+                                {% if car.latest_mileage %}
+                                    <strong>{{ '{:,}'.format(car.latest_mileage) }} km</strong>
+                                {% else %}
+                                    <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% if car.purchase_date %}
+                        <tr><th class="ps-3 text-muted">Purchased</th><td>{{ car.purchase_date.strftime('%d/%m/%Y') }}</td></tr>
+                        {% endif %}
+                        {% if car.purchase_price %}
+                        <tr><th class="ps-3 text-muted">Purchase Price</th><td>€{{ '%.2f'|format(car.purchase_price) }}</td></tr>
+                        {% endif %}
+                        {% if car.purchase_mileage %}
+                        <tr><th class="ps-3 text-muted">Mileage at Purchase</th><td>{{ '{:,}'.format(car.purchase_mileage) }} km</td></tr>
+                        {% endif %}
+                        <tr><th class="ps-3 text-muted">Events</th><td>{{ car.event_count }}</td></tr>
+                        <tr><th class="ps-3 text-muted">Total Spend</th><td><strong>€{{ '%.2f'|format(car.total_service_spend) }}</strong></td></tr>
+                        <tr><th class="ps-3 text-muted">Added</th><td class="text-muted small">{{ car.date_added.strftime('%d/%m/%Y') }}</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        {% if car.notes %}
+        <div class="card mb-3">
+            <div class="card-header"><h6 class="mb-0"><i class="bi bi-sticky me-2"></i>Notes</h6></div>
+            <div class="card-body"><p class="small mb-0">{{ car.notes }}</p></div>
+        </div>
+        {% endif %}
+
+        <!-- Mileage Log -->
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h6 class="mb-0"><i class="bi bi-speedometer2 me-2"></i>Mileage Log</h6>
+                <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#mileageModal">
+                    <i class="bi bi-plus"></i>
+                </button>
+            </div>
+            <div class="card-body p-0">
+                {% if car.ordered_mileage %}
+                <div style="max-height: 250px; overflow-y: auto;">
+                    <table class="table table-sm table-hover mb-0">
+                        <thead class="table-light sticky-top">
+                            <tr><th class="ps-3">Date</th><th>Mileage</th><th>Notes</th><th></th></tr>
+                        </thead>
+                        <tbody>
+                            {% for log in car.ordered_mileage %}
+                            <tr>
+                                <td class="ps-3 text-nowrap">{{ log.date.strftime('%d/%m/%Y') }}</td>
+                                <td><strong>{{ '{:,}'.format(log.mileage) }}</strong> km</td>
+                                <td class="text-muted small">{{ log.notes or '' }}</td>
+                                <td>
+                                    <form method="POST" action="{{ url_for('cars.delete_mileage', car_id=car.id, log_id=log.id) }}"
+                                          onsubmit="return confirm('Remove this mileage entry?')">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-1 border-0">
+                                            <i class="bi bi-x small"></i>
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-3 text-muted small">No mileage logs yet.</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Right column: Service events -->
+    <div class="col-md-8">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="section-heading mb-0"><i class="bi bi-clipboard-check me-2"></i>Service History</h5>
+            <a href="{{ url_for('events.add_event', car_id=car.id) }}" class="btn btn-primary btn-sm">
+                <i class="bi bi-plus-circle me-1"></i>Add Event
+            </a>
+        </div>
+
+        {% if car.ordered_events %}
+        {% for event in car.ordered_events %}
+        <div class="card mb-2 event-card">
+            <div class="card-body py-2 px-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="badge bg-{{ event_type_badges.get(event.event_type, 'secondary') }} me-2">
+                            {{ event.event_type }}
+                        </span>
+                        {% if event.event_type == 'NCT' and event.nct_result %}
+                        <span class="badge bg-{{ 'success' if event.nct_result == 'Pass' else 'danger' }} me-2">
+                            <i class="bi bi-{{ 'check-circle' if event.nct_result == 'Pass' else 'x-circle' }} me-1"></i>{{ event.nct_result }}
+                        </span>
+                        {% endif %}
+                        <a href="{{ url_for('events.view_event', event_id=event.id) }}" class="text-dark text-decoration-none fw-semibold">
+                            {{ event.title }}
+                        </a>
+                        {% if event.garage_name %}
+                        <small class="text-muted ms-2">@ {{ event.garage_name }}</small>
+                        {% endif %}
+                    </div>
+                    <div class="text-end text-nowrap ms-3">
+                        <div class="small text-muted">{{ event.date.strftime('%d/%m/%Y') }}</div>
+                        {% if event.mileage_at_event %}
+                        <div class="small text-muted">{{ '{:,}'.format(event.mileage_at_event) }} km</div>
+                        {% endif %}
+                        {% if event.total_cost > 0 %}
+                        <div class="fw-bold text-success small">€{{ '%.2f'|format(event.total_cost) }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% if event.notes %}
+                <p class="text-muted small mb-0 mt-1">{{ event.notes[:120] }}{% if event.notes|length > 120 %}…{% endif %}</p>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <div class="text-center py-5 text-muted border rounded">
+            <i class="bi bi-clipboard-x fs-2 d-block mb-2 opacity-25"></i>
+            <p class="mb-2">No service events recorded.</p>
+            <a href="{{ url_for('events.add_event', car_id=car.id) }}" class="btn btn-primary btn-sm">
+                <i class="bi bi-plus-circle me-1"></i>Add First Event
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Mileage Modal -->
+<div class="modal fade" id="mileageModal" tabindex="-1" aria-labelledby="mileageModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="mileageModalLabel"><i class="bi bi-speedometer2 me-2"></i>Log Mileage</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="{{ url_for('cars.add_mileage', car_id=car.id) }}">
+                {{ mileage_form.hidden_tag() }}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        {{ mileage_form.mileage.label(class="form-label") }}
+                        <div class="input-group">
+                            {{ mileage_form.mileage(class="form-control", placeholder="Enter current odometer reading") }}
+                            <span class="input-group-text">km</span>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        {{ mileage_form.date.label(class="form-label") }}
+                        {{ mileage_form.date(class="form-control", type="date") }}
+                    </div>
+                    <div class="mb-3">
+                        {{ mileage_form.notes.label(class="form-label") }}
+                        {{ mileage_form.notes(class="form-control", placeholder="Optional note") }}
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    {{ mileage_form.submit(class="btn btn-primary") }}
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Car Modal -->
+<div class="modal fade" id="deleteCarModal" tabindex="-1" aria-labelledby="deleteCarModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="deleteCarModalLabel">
+                    <i class="bi bi-exclamation-triangle me-2"></i>Delete Car
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to permanently delete <strong>{{ car.registration }} — {{ car.make }} {{ car.model }}</strong>?</p>
+                <p class="text-danger small mb-0">
+                    <i class="bi bi-exclamation-circle me-1"></i>
+                    This will also delete all {{ car.event_count }} service event(s) and all mileage logs. This cannot be undone.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form method="POST" action="{{ url_for('cars.delete_car', car_id=car.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-trash me-1"></i>Yes, Delete
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# ---------- Mileage chart script (Chart.js) ---------- #}
+{% if _chart_logs or _chart_events or _has_purchase %}
+{% set _event_colors = {
+    'Service': '#0d6efd', 'Repair': '#dc3545', 'Maintenance': '#ffc107',
+    'NCT': '#0dcaf0', 'Tax': '#6c757d', 'Insurance': '#6c757d',
+    'Inspection': '#0dcaf0', 'Modification': '#212529', 'Purchase': '#198754', 'Other': '#6c757d'
+} %}
+{% set mileage_points = [] %}
+{% for _l in _chart_logs %}
+    {% set _ = mileage_points.append({'x': _l.date.strftime('%Y-%m-%d'), 'y': _l.mileage, 'src': 'log'}) %}
+{% endfor %}
+{# Events with a mileage reading also belong on the line so the trend stays continuous. #}
+{% for _e in _chart_events %}
+    {% set _ = mileage_points.append({'x': _e.date.strftime('%Y-%m-%d'), 'y': _e.mileage_at_event, 'src': 'event'}) %}
+{% endfor %}
+{# The purchase reading also anchors the line, but is rendered separately as a star. #}
+{% if _has_purchase %}
+    {% set _ = mileage_points.append({'x': car.purchase_date.strftime('%Y-%m-%d'), 'y': car.purchase_mileage, 'src': 'purchase'}) %}
+{% endif %}
+{% set mileage_points = mileage_points | sort(attribute='x') %}
+{% set event_points = [] %}
+{% for _e in _chart_events %}
+    {% set _ = event_points.append({
+        'x': _e.date.strftime('%Y-%m-%d'),
+        'y': _e.mileage_at_event,
+        'title': _e.title,
+        'type': _e.event_type,
+        'url': url_for('events.view_event', event_id=_e.id),
+        'color': _event_colors.get(_e.event_type, '#6c757d'),
+    }) %}
+{% endfor %}
+{% set purchase_point = {'x': car.purchase_date.strftime('%Y-%m-%d'), 'y': car.purchase_mileage} if _has_purchase else none %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<script>
+(function () {
+    var canvas = document.getElementById('mileageChart');
+    if (!canvas || typeof Chart === 'undefined') return;
+
+    var mileagePoints = {{ mileage_points | tojson }};
+    var eventPoints = {{ event_points | tojson }};
+    var purchasePoint = {{ purchase_point | tojson }};
+
+    var datasets = [];
+    if (mileagePoints.length) {
+        datasets.push({
+            type: 'line',
+            label: 'Mileage (km)',
+            data: mileagePoints,
+            borderColor: '#0d6efd',
+            backgroundColor: 'rgba(13,110,253,0.10)',
+            borderWidth: 2,
+            pointRadius: function (ctx) {
+                var p = ctx.raw || {};
+                return (p.src === 'event' || p.src === 'purchase') ? 0 : 3;
+            },
+            pointHoverRadius: function (ctx) {
+                var p = ctx.raw || {};
+                return (p.src === 'event' || p.src === 'purchase') ? 0 : 5;
+            },
+            tension: 0.2,
+            fill: true,
+            order: 3,
+        });
+    }
+    if (purchasePoint) {
+        datasets.push({
+            type: 'scatter',
+            label: 'Purchase',
+            data: [purchasePoint],
+            pointStyle: 'star',
+            pointRadius: 9,
+            pointHoverRadius: 9,
+            borderWidth: 2,
+            borderColor: '#198754',
+            backgroundColor: '#198754',
+            order: 1,
+        });
+    }
+    if (eventPoints.length) {
+        datasets.push({
+            type: 'scatter',
+            label: 'Service Events',
+            data: eventPoints,
+            pointStyle: 'triangle',
+            pointRadius: 8,
+            pointHoverRadius: 10,
+            borderWidth: 1.5,
+            borderColor: '#000',
+            backgroundColor: eventPoints.map(function (p) { return p.color; }),
+            order: 1,
+        });
+    }
+
+    new Chart(canvas.getContext('2d'), {
+        data: { datasets: datasets },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'nearest', intersect: true },
+            onClick: function (evt, elements) {
+                if (!elements || !elements.length) return;
+                var el = elements[0];
+                var ds = this.data.datasets[el.datasetIndex];
+                if (ds && ds.label === 'Service Events') {
+                    var point = ds.data[el.index];
+                    if (point && point.url) window.location.href = point.url;
+                }
+            },
+            scales: {
+                x: {
+                    type: 'time',
+                    time: { unit: 'month', tooltipFormat: 'dd MMM yyyy', displayFormats: { month: 'MMM yyyy' } },
+                    title: { display: false }
+                },
+                y: {
+                    beginAtZero: false,
+                    title: { display: true, text: 'km' },
+                    ticks: {
+                        callback: function (v) { return Number(v).toLocaleString(); }
+                    }
+                }
+            },
+            plugins: {
+                legend: { position: 'bottom', labels: { usePointStyle: true } },
+                tooltip: {
+                    filter: function (ctx) {
+                        var p = ctx.raw || {};
+                        // Suppress the line-tooltip for points that are only there to
+                        // hold the trend line under an event triangle or purchase star.
+                        return !(ctx.dataset.label === 'Mileage (km)' && (p.src === 'event' || p.src === 'purchase'));
+                    },
+                    callbacks: {
+                        label: function (ctx) {
+                            var p = ctx.raw || {};
+                            var km = Number(p.y).toLocaleString() + ' km';
+                            if (ctx.dataset.label === 'Service Events') {
+                                return [p.title + ' (' + p.type + ')', km];
+                            }
+                            if (ctx.dataset.label === 'Purchase') {
+                                return ['Purchased', km];
+                            }
+                            return km;
+                        }
+                    }
+                }
+            }
+        }
+    });
+})();
+</script>
+{% endif %}
+
+{% endblock content %}

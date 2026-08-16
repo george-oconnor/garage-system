@@ -1,0 +1,222 @@
+{% extends "layout.html" %}
+{% block content %}
+
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('main.home') }}">Home</a></li>
+        <li class="breadcrumb-item"><a href="{{ url_for('cars.view_car', car_id=event.car.id) }}">{{ event.car.registration }}</a></li>
+        <li class="breadcrumb-item"><a href="{{ url_for('events.view_event', event_id=event.id) }}">{{ event.title }}</a></li>
+        <li class="breadcrumb-item active">Edit</li>
+    </ol>
+</nav>
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-pencil me-2"></i>Edit Event</h5>
+                <span class="reg-plate">{{ event.car.registration | format_reg }}</span>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('events.edit_event', event_id=event.id) }}" enctype="multipart/form-data">
+                    {{ form.hidden_tag() }}
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-8">
+                            <div class="mb-3">
+                                {{ form.title.label(class="form-label fw-semibold") }}
+                                {{ form.title(class="form-control" + (" is-invalid" if form.title.errors else "")) }}
+                                {% for error in form.title.errors %}
+                                    <div class="invalid-feedback">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                {{ form.event_type.label(class="form-label fw-semibold") }}
+                                {{ form.event_type(class="form-select") }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        {{ form.provider_type.label(class="form-label fw-semibold") }}
+                        {{ form.provider_type(class="form-select" + (" is-invalid" if form.provider_type.errors else "")) }}
+                        <div class="form-text">
+                            Choose <em>Self</em> to enter parts &amp; labour manually, or <em>Third-party</em>
+                            to upload the invoice PDF and enter the total.
+                        </div>
+                        {% for error in form.provider_type.errors %}
+                            <div class="invalid-feedback">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                {{ form.date.label(class="form-label fw-semibold") }}
+                                {{ form.date(class="form-control" + (" is-invalid" if form.date.errors else ""), type="date") }}
+                                {% for error in form.date.errors %}
+                                    <div class="invalid-feedback">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                {{ form.mileage_at_event.label(class="form-label") }}
+                                <div class="input-group">
+                                    {{ form.mileage_at_event(class="form-control") }}
+                                    <span class="input-group-text">km</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Third-party details (shown only when Provider is Third-party) -->
+                    <div id="third-party-fields" class="border rounded p-3 mb-3 bg-light" style="display:none;">
+                        <h6 class="mb-3"><i class="bi bi-shop me-2"></i>Third-party Provider Details</h6>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    {{ form.garage_name.label(class="form-label") }}
+                                    {{ form.garage_name(class="form-control") }}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    {{ form.garage_address.label(class="form-label") }}
+                                    {{ form.garage_address(class="form-control") }}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    {{ form.invoice_number.label(class="form-label") }}
+                                    {{ form.invoice_number(class="form-control") }}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    {{ form.total_cost_override.label(class="form-label") }}
+                                    <div class="input-group">
+                                        <span class="input-group-text">€</span>
+                                        {{ form.total_cost_override(class="form-control" + (" is-invalid" if form.total_cost_override.errors else ""),
+                                           step="0.01", min="0", placeholder="Total on invoice") }}
+                                    </div>
+                                    {% for error in form.total_cost_override.errors %}
+                                        <div class="invalid-feedback">{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <div class="mb-1">
+                                    {{ form.invoice_pdf.label(class="form-label") }}
+                                    {{ form.invoice_pdf(class="form-control" + (" is-invalid" if form.invoice_pdf.errors else ""), accept="application/pdf") }}
+                                    {% if event.invoice_filename %}
+                                        <div class="form-text mt-1">
+                                            <i class="bi bi-file-earmark-pdf text-danger me-1"></i>
+                                            An invoice is currently on file
+                                            (<a href="{{ url_for('static', filename='invoices/' + event.invoice_filename) }}" target="_blank" rel="noopener">view</a>).
+                                            Uploading a new file will replace it.
+                                            {% if event.line_items %}
+                                                <span class="text-warning d-block mt-1">
+                                                    Note: replacing the invoice will remove the {{ event.line_items|length }} existing line item(s).
+                                                </span>
+                                            {% endif %}
+                                        </div>
+                                        <div class="form-check mt-2">
+                                            {{ form.remove_invoice(class="form-check-input") }}
+                                            {{ form.remove_invoice.label(class="form-check-label text-danger") }}
+                                        </div>
+                                    {% else %}
+                                        <div class="form-text">
+                                            Upload the provider's invoice PDF. When present, line items are disabled
+                                            and this PDF is served as the event's download.
+                                            {% if event.line_items %}
+                                                <span class="text-warning d-block mt-1">
+                                                    Note: uploading an invoice will remove the {{ event.line_items|length }} existing line item(s).
+                                                </span>
+                                            {% endif %}
+                                        </div>
+                                    {% endif %}
+                                    {% for error in form.invoice_pdf.errors %}
+                                        <div class="invalid-feedback">{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        {{ form.notes.label(class="form-label") }}
+                        {{ form.notes(class="form-control", rows=3) }}
+                    </div>
+
+                    <!-- NCT-specific fields (shown only when Event Type is NCT) -->
+                    <div id="nct-fields" class="border rounded p-3 mb-3 bg-light" style="display:none;">
+                        <h6 class="mb-3"><i class="bi bi-clipboard-check me-2"></i>NCT Test Details</h6>
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                {{ form.nct_result.label(class="form-label fw-semibold") }}
+                                {{ form.nct_result(class="form-select" + (" is-invalid" if form.nct_result.errors else "")) }}
+                                {% for error in form.nct_result.errors %}
+                                    <div class="invalid-feedback">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                            <div class="col-md-8">
+                                {{ form.nct_cert.label(class="form-label fw-semibold") }}
+                                {{ form.nct_cert(class="form-control" + (" is-invalid" if form.nct_cert.errors else ""), accept="application/pdf") }}
+                                {% if event.nct_cert_filename %}
+                                    <div class="form-text mt-1">
+                                        <i class="bi bi-file-earmark-pdf text-danger me-1"></i>
+                                        A certificate is currently on file
+                                        (<a href="{{ url_for('static', filename='nct_certs/' + event.nct_cert_filename) }}" target="_blank" rel="noopener">view</a>).
+                                        Uploading a new file will replace it.
+                                    </div>
+                                    <div class="form-check mt-2">
+                                        {{ form.remove_nct_cert(class="form-check-input") }}
+                                        {{ form.remove_nct_cert.label(class="form-check-label text-danger") }}
+                                    </div>
+                                {% else %}
+                                    <div class="form-text">Upload the official NCT certificate PDF. It will be used as the event's PDF download.</div>
+                                {% endif %}
+                                {% for error in form.nct_cert.errors %}
+                                    <div class="invalid-feedback">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        {{ form.submit(class="btn btn-primary") }}
+                        <a href="{{ url_for('events.view_event', event_id=event.id) }}" class="btn btn-outline-secondary">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    var typeSelect = document.getElementById('{{ form.event_type.id }}');
+    var nctBlock = document.getElementById('nct-fields');
+    var providerSelect = document.getElementById('{{ form.provider_type.id }}');
+    var thirdPartyBlock = document.getElementById('third-party-fields');
+    function toggleNct() {
+        if (typeSelect && nctBlock) {
+            nctBlock.style.display = (typeSelect.value === 'NCT') ? '' : 'none';
+        }
+    }
+    function toggleThirdParty() {
+        if (providerSelect && thirdPartyBlock) {
+            thirdPartyBlock.style.display = (providerSelect.value === 'ThirdParty') ? '' : 'none';
+        }
+    }
+    if (typeSelect) typeSelect.addEventListener('change', toggleNct);
+    if (providerSelect) providerSelect.addEventListener('change', toggleThirdParty);
+    toggleNct();
+    toggleThirdParty();
+})();
+</script>
+
+{% endblock content %}

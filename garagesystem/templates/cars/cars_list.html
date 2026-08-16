@@ -1,0 +1,138 @@
+{% extends "layout.html" %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0"><i class="bi bi-car-front me-2 text-primary"></i>My Cars</h2>
+    <a href="{{ url_for('cars.add_car_step1') }}" class="btn btn-primary">
+        <i class="bi bi-plus-circle me-1"></i>Add Car
+    </a>
+</div>
+
+{% if cars %}
+<div class="row g-3">
+    {% set event_type_badges = {
+        'Service': 'primary', 'Repair': 'danger', 'Maintenance': 'warning text-dark',
+        'NCT': 'info text-dark', 'Tax': 'secondary', 'Insurance': 'secondary',
+        'Inspection': 'info text-dark', 'Modification': 'dark', 'Purchase': 'success', 'Other': 'secondary'
+    } %}
+    {% for car in cars %}
+    <div class="col-md-6 col-lg-4">
+        <div class="card car-card h-100">
+            {% set display_img = url_for('static', filename='car_images/' + car.image_custom) if car.image_custom else car.image_url %}
+            {% if display_img %}
+            <img src="{{ display_img }}" alt="{{ car.make }} {{ car.model }}"
+                 style="height:140px;object-fit:cover;object-position:center;" class="card-img-top">
+            {% endif %}
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <span class="reg-plate">{{ car.registration | format_reg }}</span>
+                    <div>
+                        {% if car.fuel_type %}
+                        <span class="badge bg-light text-dark border me-1">{{ car.fuel_type }}</span>
+                        {% endif %}
+                        {% if car.year %}
+                        <span class="badge bg-light text-dark border">{{ car.year }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <h5 class="card-title mb-1">{{ car.make }} {{ car.model }}</h5>
+                <p class="text-muted small mb-3">
+                    {% if car.engine_size %}{{ car.engine_size }}{% endif %}
+                    {% if car.transmission %} · {{ car.transmission }}{% endif %}
+                    {% if car.color %} · {{ car.color }}{% endif %}
+                </p>
+
+                <div class="row g-2 mb-3 text-center">
+                    <div class="col-4">
+                        <div class="border rounded p-2">
+                            <div class="fw-bold">{{ car.event_count }}</div>
+                            <div class="text-muted" style="font-size:0.7rem">EVENTS</div>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="border rounded p-2">
+                            <div class="fw-bold">
+                                {% if car.latest_mileage %}{{ '{:,}'.format(car.latest_mileage) }}{% else %}—{% endif %}
+                            </div>
+                            <div class="text-muted" style="font-size:0.7rem">KM</div>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="border rounded p-2">
+                            <div class="fw-bold">
+                                {% if car.total_service_spend > 0 %}€{{ '%.0f'|format(car.total_service_spend) }}{% else %}—{% endif %}
+                            </div>
+                            <div class="text-muted" style="font-size:0.7rem">SPENT</div>
+                        </div>
+                    </div>
+                </div>
+
+                {% if car.ordered_events %}
+                <div class="text-muted small mb-3">
+                    <strong>Last event:</strong>
+                    {{ car.ordered_events[0].date.strftime('%d/%m/%Y') }} —
+                    <span class="badge bg-{{ event_type_badges.get(car.ordered_events[0].event_type, 'secondary') }}">
+                        {{ car.ordered_events[0].event_type }}
+                    </span>
+                    {{ car.ordered_events[0].title }}
+                </div>
+                {% endif %}
+            </div>
+            <div class="card-footer bg-transparent d-flex gap-2">
+                <a href="{{ url_for('cars.view_car', car_id=car.id) }}" class="btn btn-sm btn-primary flex-grow-1">
+                    <i class="bi bi-eye me-1"></i>View
+                </a>
+                <a href="{{ url_for('cars.edit_car', car_id=car.id) }}" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-pencil"></i>
+                </a>
+                <button type="button" class="btn btn-sm btn-outline-danger"
+                        data-bs-toggle="modal" data-bs-target="#deleteModal{{ car.id }}">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete modal for {{ car.registration }} -->
+    <div class="modal fade" id="deleteModal{{ car.id }}" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-exclamation-triangle me-2 text-danger"></i>Delete Car</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Delete <strong>{{ car.registration }} — {{ car.make }} {{ car.model }}</strong>?</p>
+                    {% if car.event_count %}
+                    <div class="alert alert-warning py-2 small mb-0">
+                        This will also delete {{ car.event_count }} service event(s) and all mileage logs. This cannot be undone.
+                    </div>
+                    {% else %}
+                    <p class="text-muted small mb-0">This cannot be undone.</p>
+                    {% endif %}
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <form method="POST" action="{{ url_for('cars.delete_car', car_id=car.id) }}" class="d-inline">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-danger">
+                            <i class="bi bi-trash me-1"></i>Yes, Delete
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="text-center py-5 text-muted">
+    <i class="bi bi-car-front fs-1 d-block mb-3 opacity-25"></i>
+    <h5>No cars saved yet</h5>
+    <a href="{{ url_for('cars.add_car_step1') }}" class="btn btn-primary mt-2">
+        <i class="bi bi-plus-circle me-1"></i>Add Your First Car
+    </a>
+</div>
+{% endif %}
+
+{% endblock content %}

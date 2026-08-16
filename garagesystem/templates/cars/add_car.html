@@ -1,0 +1,224 @@
+﻿{% extends "layout.html" %}
+{% block content %}
+
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('main.home') }}">Home</a></li>
+        <li class="breadcrumb-item"><a href="{{ url_for('cars.cars_list') }}">My Cars</a></li>
+        <li class="breadcrumb-item"><a href="{{ url_for('cars.add_car_step1') }}">Add Car</a></li>
+        <li class="breadcrumb-item active">Details</li>
+    </ol>
+</nav>
+
+<!-- Step indicator -->
+<div class="d-flex align-items-center gap-3 mb-4">
+    <a href="{{ url_for('cars.add_car_step1') }}" class="text-decoration-none">
+        <span class="step-badge done"><i class="bi bi-check-lg" style="font-size:0.8rem;"></i></span>
+    </a>
+    <a href="{{ url_for('cars.add_car_step1') }}" class="text-decoration-none text-muted small">Look Up Plate</a>
+    <i class="bi bi-chevron-right text-muted small"></i>
+    <span class="step-badge active">2</span>
+    <span class="fw-semibold small">Car Details</span>
+</div>
+
+<!-- Lookup result banner -->
+{% if prefill.lookup_success %}
+<div class="alert alert-success d-flex align-items-start mb-4">
+    <i class="bi bi-check-circle-fill me-2 mt-1 flex-shrink-0 fs-5"></i>
+    <div>
+        <strong>Vehicle found</strong>{% if prefill.lookup_description %} &mdash; {{ prefill.lookup_description }}{% endif %}
+        <div class="text-muted small mt-1">Details have been pre-filled below. Review and update anything before saving.</div>
+    </div>
+</div>
+{% elif prefill.parsed %}
+<div class="alert alert-info d-flex align-items-start mb-4">
+    <i class="bi bi-info-circle-fill me-2 mt-1 flex-shrink-0 fs-5"></i>
+    <div>
+        <strong>{{ prefill.registration }}</strong> &mdash; {{ prefill.parsed_year_display }} registration{% if prefill.parsed_county %}, {{ prefill.parsed_county }}{% endif %}
+        <div class="text-muted small mt-1">
+            Full vehicle details weren't retrieved
+            {%- if prefill.lookup_error %}: {{ prefill.lookup_error }}
+            {%- else %} (vehicle not found in lookup database)
+            {%- endif %}.
+            Please fill in the form below.
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="alert alert-secondary d-flex align-items-start mb-4">
+    <i class="bi bi-tag-fill me-2 mt-1 flex-shrink-0"></i>
+    <div>Registration <strong>{{ prefill.registration }}</strong> &mdash; plate format not recognised. Fill in details manually.</div>
+</div>
+{% endif %}
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-car-front me-2"></i>Car Details</h5>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="reg-plate">{{ prefill.registration | format_reg }}</span>
+                    <a href="{{ url_for('cars.add_car_step1') }}" class="btn btn-outline-secondary btn-sm">
+                        <i class="bi bi-arrow-left me-1"></i>Change
+                    </a>
+                </div>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('cars.add_car_details') }}">
+                    {{ form.hidden_tag() }}
+
+                    {# Show all form errors at the top #}
+                    {% set all_errors = [] %}
+                    {% for field in form if field.errors %}
+                        {% for e in field.errors %}{% set _ = all_errors.append(field.label.text ~ ': ' ~ e) %}{% endfor %}
+                    {% endfor %}
+                    {% if all_errors %}
+                    <div class="alert alert-danger mb-3">
+                        <strong>Please fix the following:</strong>
+                        <ul class="mb-0 mt-1">
+                            {% for e in all_errors %}<li>{{ e }}</li>{% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+
+                    {# Registration submitted as hidden field — locked to what was looked up #}
+                    {{ form.registration(type="hidden") }}
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                {{ form.make.label(class="form-label fw-semibold") }}
+                                {{ form.make(class="form-control" + (" is-invalid" if form.make.errors else ""),
+                                   placeholder="e.g. Volkswagen") }}
+                                {% for error in form.make.errors %}
+                                    <div class="invalid-feedback">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                {{ form.model.label(class="form-label fw-semibold") }}
+                                {{ form.model(class="form-control" + (" is-invalid" if form.model.errors else ""),
+                                   placeholder="e.g. Golf") }}
+                                {% for error in form.model.errors %}
+                                    <div class="invalid-feedback">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        {{ form.variant.label(class="form-label") }}
+                        {{ form.variant(class="form-control", placeholder="e.g. 1.8T Vector Convertible 2dr") }}
+                        <div class="form-text">Full trim/variant description from the lookup (optional).</div>
+                    </div>
+
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                {{ form.year.label(class="form-label") }}
+                                {{ form.year(class="form-control", placeholder="e.g. 2023") }}
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                {{ form.color.label(class="form-label") }}
+                                {{ form.color(class="form-control", placeholder="e.g. Silver") }}
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                {{ form.fuel_type.label(class="form-label") }}
+                                {{ form.fuel_type(class="form-select") }}
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                {{ form.transmission.label(class="form-label") }}
+                                {{ form.transmission(class="form-select") }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                {{ form.engine_size.label(class="form-label") }}
+                                {{ form.engine_size(class="form-control", placeholder="e.g. 1.6") }}
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                {{ form.vin.label(class="form-label") }}
+                                {{ form.vin(class="form-control", placeholder="17-character VIN") }}
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                {{ form.current_mileage.label(class="form-label") }}
+                                <div class="input-group">
+                                    {{ form.current_mileage(class="form-control", placeholder="km") }}
+                                    <span class="input-group-text">km</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr>
+                    <p class="text-muted small mb-3"><i class="bi bi-receipt me-1"></i>Purchase Details (optional)</p>
+
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                {{ form.purchase_date.label(class="form-label") }}
+                                {{ form.purchase_date(class="form-control", type="date") }}
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                {{ form.purchase_price.label(class="form-label") }}
+                                <div class="input-group">
+                                    <span class="input-group-text">&euro;</span>
+                                    {{ form.purchase_price(class="form-control", placeholder="0.00", step="0.01") }}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                {{ form.purchase_mileage.label(class="form-label") }}
+                                <div class="input-group">
+                                    {{ form.purchase_mileage(class="form-control", placeholder="km") }}
+                                    <span class="input-group-text">km</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        {{ form.notes.label(class="form-label") }}
+                        {{ form.notes(class="form-control", rows=3,
+                           placeholder="Any additional notes about this car...") }}
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        {{ form.submit(class="btn btn-primary") }}
+                        <a href="{{ url_for('cars.add_car_step1') }}" class="btn btn-outline-secondary">Back</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.step-badge {
+    width: 2rem; height: 2rem; border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-weight: bold; font-size: 0.9rem;
+    background-color: #e9ecef; color: #6c757d; flex-shrink: 0;
+}
+.step-badge.active { background-color: #0d6efd; color: #fff; }
+.step-badge.done   { background-color: #198754; color: #fff; }
+</style>
+
+{% endblock content %}

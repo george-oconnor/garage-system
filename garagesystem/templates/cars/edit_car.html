@@ -1,0 +1,166 @@
+{% extends "layout.html" %}
+{% block content %}
+
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('main.home') }}">Home</a></li>
+        <li class="breadcrumb-item"><a href="{{ url_for('cars.cars_list') }}">My Cars</a></li>
+        <li class="breadcrumb-item"><a href="{{ url_for('cars.view_car', car_id=car.id) }}">{{ car.registration }}</a></li>
+        <li class="breadcrumb-item active">Edit</li>
+    </ol>
+</nav>
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-pencil me-2"></i>Edit Car</h5>
+                <span class="reg-plate">{{ car.registration | format_reg }}</span>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('cars.edit_car', car_id=car.id) }}" enctype="multipart/form-data">
+                    {{ form.hidden_tag() }}
+
+                    <div class="mb-3">
+                        {{ form.registration.label(class="form-label fw-semibold") }}
+                        {{ form.registration(class="form-control" + (" is-invalid" if form.registration.errors else ""),
+                           style="font-family: 'Courier New', monospace; font-weight: bold; text-transform: uppercase;") }}
+                        {% for error in form.registration.errors %}
+                            <div class="invalid-feedback">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                {{ form.make.label(class="form-label fw-semibold") }}
+                                {{ form.make(class="form-control" + (" is-invalid" if form.make.errors else "")) }}
+                                {% for error in form.make.errors %}
+                                    <div class="invalid-feedback">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                {{ form.model.label(class="form-label fw-semibold") }}
+                                {{ form.model(class="form-control" + (" is-invalid" if form.model.errors else "")) }}
+                                {% for error in form.model.errors %}
+                                    <div class="invalid-feedback">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        {{ form.variant.label(class="form-label") }}
+                        {{ form.variant(class="form-control", placeholder="e.g. 1.8T Vector Convertible 2dr") }}
+                    </div>
+
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                {{ form.year.label(class="form-label") }}
+                                {{ form.year(class="form-control") }}
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                {{ form.color.label(class="form-label") }}
+                                {{ form.color(class="form-control") }}
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                {{ form.fuel_type.label(class="form-label") }}
+                                {{ form.fuel_type(class="form-select") }}
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                {{ form.transmission.label(class="form-label") }}
+                                {{ form.transmission(class="form-select") }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                {{ form.engine_size.label(class="form-label") }}
+                                {{ form.engine_size(class="form-control") }}
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                {{ form.vin.label(class="form-label") }}
+                                {{ form.vin(class="form-control") }}
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                {{ form.current_mileage.label(class="form-label") }}
+                                <div class="input-group">
+                                    {{ form.current_mileage(class="form-control") }}
+                                    <span class="input-group-text">km</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr>
+                    <p class="text-muted small mb-3"><i class="bi bi-receipt me-1"></i>Purchase Details</p>
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                {{ form.purchase_date.label(class="form-label") }}
+                                {{ form.purchase_date(class="form-control", type="date") }}
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                {{ form.purchase_price.label(class="form-label") }}
+                                <div class="input-group">
+                                    <span class="input-group-text">€</span>
+                                    {{ form.purchase_price(class="form-control", step="0.01") }}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                {{ form.purchase_mileage.label(class="form-label") }}
+                                <div class="input-group">
+                                    {{ form.purchase_mileage(class="form-control") }}
+                                    <span class="input-group-text">km</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        {{ form.notes.label(class="form-label") }}
+                        {{ form.notes(class="form-control", rows=3) }}
+                    </div>
+
+                    <div class="mb-3">
+                        {{ form.image.label(class="form-label") }}
+                        {% if car.image_custom %}
+                        <div class="mb-2">
+                            <img src="{{ url_for('static', filename='car_images/' + car.image_custom) }}"
+                                 style="max-height:120px;border-radius:6px;" alt="Current photo">
+                            <div class="text-muted small mt-1">Current photo &mdash; upload a new one to replace it.</div>
+                        </div>
+                        {% endif %}
+                        {{ form.image(class="form-control") }}
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        {{ form.submit(class="btn btn-primary") }}
+                        <a href="{{ url_for('cars.view_car', car_id=car.id) }}" class="btn btn-outline-secondary">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock content %}

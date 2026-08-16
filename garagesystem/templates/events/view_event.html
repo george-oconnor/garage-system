@@ -1,0 +1,371 @@
+{% extends "layout.html" %}
+{% block content %}
+
+{% set event_type_badges = {
+    'Service': 'primary', 'Repair': 'danger', 'Maintenance': 'warning text-dark',
+    'NCT': 'info text-dark', 'Tax': 'secondary', 'Insurance': 'secondary',
+    'Inspection': 'info text-dark', 'Modification': 'dark', 'Purchase': 'success', 'Other': 'secondary'
+} %}
+{% set item_type_badges = {
+    'Parts': 'primary', 'Labour': 'success', 'Fluid': 'info text-dark',
+    'Consumables': 'warning text-dark', 'Other': 'secondary'
+} %}
+
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('main.home') }}">Home</a></li>
+        <li class="breadcrumb-item"><a href="{{ url_for('cars.view_car', car_id=car.id) }}">{{ car.registration }}</a></li>
+        <li class="breadcrumb-item active">{{ event.title }}</li>
+    </ol>
+</nav>
+
+<!-- Header -->
+<div class="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-2">
+    <div>
+        <h2 class="mb-1">{{ event.title }}</h2>
+        <span class="badge bg-{{ event_type_badges.get(event.event_type, 'secondary') }} fs-6">
+            {{ event.event_type }}
+        </span>
+        {% if event.event_type == 'NCT' and event.nct_result %}
+            <span class="badge fs-6 bg-{{ 'success' if event.nct_result == 'Pass' else 'danger' }}">
+                <i class="bi bi-{{ 'check-circle' if event.nct_result == 'Pass' else 'x-circle' }} me-1"></i>
+                NCT {{ event.nct_result }}
+            </span>
+        {% endif %}
+    </div>
+    <div class="btn-group">
+        <a href="{{ url_for('events.edit_event', event_id=event.id) }}" class="btn btn-outline-primary btn-sm">
+            <i class="bi bi-pencil me-1"></i>Edit
+        </a>
+        <a href="{{ url_for('events.download_pdf', event_id=event.id) }}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-file-pdf me-1"></i>{% if event.event_type == 'NCT' and event.nct_cert_filename %}NCT Cert{% elif event.uses_invoice %}Invoice{% else %}PDF{% endif %}
+        </a>
+        <form method="POST" action="{{ url_for('events.delete_event', event_id=event.id) }}" class="d-inline"
+              onsubmit="return confirm('Delete this event and all its line items? This cannot be undone.')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-outline-danger btn-sm">
+                <i class="bi bi-trash me-1"></i>Delete
+            </button>
+        </form>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Left: Event details + cost summary -->
+    <div class="col-md-4">
+        <!-- Event details -->
+        <div class="card mb-3">
+            <div class="card-header"><h6 class="mb-0"><i class="bi bi-info-circle me-2"></i>Event Details</h6></div>
+            <div class="card-body p-0">
+                <table class="table table-sm table-borderless mb-0">
+                    <tbody>
+                        <tr>
+                            <th class="ps-3 text-muted" style="width:40%">Date</th>
+                            <td>{{ event.date.strftime('%d/%m/%Y') }}</td>
+                        </tr>
+                        <tr>
+                            <th class="ps-3 text-muted">Provider</th>
+                            <td>
+                                {% if event.provider_type == 'ThirdParty' %}
+                                    <span class="badge bg-info text-dark"><i class="bi bi-shop me-1"></i>Third-party</span>
+                                {% else %}
+                                    <span class="badge bg-secondary"><i class="bi bi-person-gear me-1"></i>Self</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% if event.mileage_at_event %}
+                        <tr>
+                            <th class="ps-3 text-muted">Mileage</th>
+                            <td>{{ '{:,}'.format(event.mileage_at_event) }} km</td>
+                        </tr>
+                        {% endif %}
+                        {% if event.garage_name %}
+                        <tr>
+                            <th class="ps-3 text-muted">Garage</th>
+                            <td>{{ event.garage_name }}</td>
+                        </tr>
+                        {% endif %}
+                        {% if event.garage_address %}
+                        <tr>
+                            <th class="ps-3 text-muted">Address</th>
+                            <td class="small">{{ event.garage_address }}</td>
+                        </tr>
+                        {% endif %}
+                        {% if event.invoice_number %}
+                        <tr>
+                            <th class="ps-3 text-muted">Invoice</th>
+                            <td><code>{{ event.invoice_number }}</code></td>
+                        </tr>
+                        {% endif %}
+                        {% if event.provider_type == 'ThirdParty' %}
+                        <tr>
+                            <th class="ps-3 text-muted">Invoice PDF</th>
+                            <td>
+                                {% if event.invoice_filename %}
+                                    <a href="{{ url_for('static', filename='invoices/' + event.invoice_filename) }}"
+                                       target="_blank" rel="noopener" class="text-decoration-none">
+                                        <i class="bi bi-file-earmark-pdf text-danger me-1"></i>View PDF
+                                    </a>
+                                {% else %}
+                                    <span class="text-muted small">Not uploaded</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endif %}
+                        {% if event.event_type == 'NCT' %}
+                        <tr>
+                            <th class="ps-3 text-muted">NCT Result</th>
+                            <td>
+                                {% if event.nct_result %}
+                                    <span class="badge bg-{{ 'success' if event.nct_result == 'Pass' else 'danger' }}">
+                                        {{ event.nct_result }}
+                                    </span>
+                                {% else %}
+                                    <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th class="ps-3 text-muted">Certificate</th>
+                            <td>
+                                {% if event.nct_cert_filename %}
+                                    <a href="{{ url_for('static', filename='nct_certs/' + event.nct_cert_filename) }}"
+                                       target="_blank" rel="noopener" class="text-decoration-none">
+                                        <i class="bi bi-file-earmark-pdf text-danger me-1"></i>View PDF
+                                    </a>
+                                {% else %}
+                                    <span class="text-muted small">Not uploaded</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+                {% if event.notes %}
+                <div class="px-3 pb-3">
+                    <p class="text-muted small mb-1 fw-semibold">Notes</p>
+                    <p class="small mb-0">{{ event.notes }}</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Vehicle -->
+        <div class="card mb-3">
+            <div class="card-header"><h6 class="mb-0"><i class="bi bi-car-front me-2"></i>Vehicle</h6></div>
+            <div class="card-body">
+                <div class="mb-1"><span class="reg-plate">{{ car.registration | format_reg }}</span></div>
+                <p class="mb-1 fw-semibold">{{ car.make }} {{ car.model }}</p>
+                <p class="text-muted small mb-2">
+                    {% if car.year %}{{ car.year }}{% endif %}
+                    {% if car.fuel_type %} · {{ car.fuel_type }}{% endif %}
+                </p>
+                <a href="{{ url_for('cars.view_car', car_id=car.id) }}" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-arrow-left me-1"></i>Back to Car
+                </a>
+            </div>
+        </div>
+
+        <!-- Cost Summary -->
+        <div class="card">
+            <div class="card-header"><h6 class="mb-0"><i class="bi bi-currency-euro me-2"></i>Cost Summary</h6></div>
+            <div class="card-body">
+                {% if event.uses_invoice %}
+                <p class="small text-muted mb-2">
+                    <i class="bi bi-info-circle me-1"></i>Cost captured from uploaded invoice.
+                </p>
+                <div class="d-flex justify-content-between">
+                    <strong>Invoice Total</strong>
+                    <strong class="text-success fs-5">€{{ '%.2f'|format(event.total_cost) }}</strong>
+                </div>
+                {% else %}
+                {% if event.labour_cost > 0 %}
+                <div class="d-flex justify-content-between mb-1">
+                    <span class="text-muted">Labour</span>
+                    <span>€{{ '%.2f'|format(event.labour_cost) }}</span>
+                </div>
+                {% endif %}
+                {% if event.parts_cost > 0 %}
+                <div class="d-flex justify-content-between mb-1">
+                    <span class="text-muted">Parts &amp; Consumables</span>
+                    <span>€{{ '%.2f'|format(event.parts_cost) }}</span>
+                </div>
+                {% endif %}
+                {% set other_cost = event.total_cost - event.labour_cost - event.parts_cost %}
+                {% if other_cost > 0 %}
+                <div class="d-flex justify-content-between mb-1">
+                    <span class="text-muted">Other</span>
+                    <span>€{{ '%.2f'|format(other_cost) }}</span>
+                </div>
+                {% endif %}
+                <hr class="my-2">
+                <div class="d-flex justify-content-between">
+                    <strong>Total</strong>
+                    <strong class="text-success fs-5">€{{ '%.2f'|format(event.total_cost) }}</strong>
+                </div>
+                {% if not event.line_items %}
+                <p class="text-muted small mt-2 mb-0">Add line items to calculate cost.</p>
+                {% endif %}
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Right: Line items + add form, OR invoice panel -->
+    <div class="col-md-8">
+        {% if event.uses_invoice %}
+        <!-- Invoice panel (third-party events with uploaded invoice) -->
+        <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h6 class="mb-0"><i class="bi bi-file-earmark-pdf me-2 text-danger"></i>Provider Invoice</h6>
+                {% if event.garage_name %}
+                <small class="text-muted">{{ event.garage_name }}</small>
+                {% endif %}
+            </div>
+            <div class="card-body text-center py-4">
+                <i class="bi bi-file-earmark-pdf display-4 text-danger opacity-75 d-block mb-2"></i>
+                <p class="mb-2">This event's cost is captured via an uploaded invoice.</p>
+                <p class="text-muted small mb-3">Line items are disabled for invoice-based events.</p>
+                <div class="d-flex justify-content-center gap-2 flex-wrap">
+                    <a href="{{ url_for('static', filename='invoices/' + event.invoice_filename) }}"
+                       target="_blank" rel="noopener" class="btn btn-outline-danger btn-sm">
+                        <i class="bi bi-eye me-1"></i>View Invoice
+                    </a>
+                    <a href="{{ url_for('events.download_pdf', event_id=event.id) }}"
+                       class="btn btn-outline-secondary btn-sm">
+                        <i class="bi bi-download me-1"></i>Download
+                    </a>
+                    <a href="{{ url_for('events.edit_event', event_id=event.id) }}"
+                       class="btn btn-outline-primary btn-sm">
+                        <i class="bi bi-pencil me-1"></i>Replace / Remove
+                    </a>
+                </div>
+                <div class="mt-3">
+                    <span class="badge bg-success fs-6">Total: €{{ '%.2f'|format(event.total_cost) }}</span>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        {% if event.provider_type == 'ThirdParty' and not event.invoice_filename %}
+        <div class="alert alert-info small mb-3">
+            <i class="bi bi-info-circle me-1"></i>
+            This is a third-party event. You can
+            <a href="{{ url_for('events.edit_event', event_id=event.id) }}">upload an invoice PDF</a>
+            instead of adding line items below.
+        </div>
+        {% endif %}
+        <!-- Line items table -->
+        <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h6 class="mb-0"><i class="bi bi-list-ul me-2"></i>Work Done / Parts Used</h6>
+                <span class="badge bg-secondary">{{ event.line_items|length }}</span>
+            </div>
+            {% if event.line_items %}
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Description</th>
+                            <th>Type</th>
+                            <th>Part No.</th>
+                            <th class="text-end">Qty</th>
+                            <th class="text-end">Unit</th>
+                            <th class="text-end">Total</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in event.line_items %}
+                        <tr>
+                            <td>{{ item.description }}</td>
+                            <td>
+                                <span class="badge bg-{{ item_type_badges.get(item.item_type, 'secondary') }}">
+                                    {{ item.item_type }}
+                                </span>
+                            </td>
+                            <td><small class="text-muted font-monospace">{{ item.part_number or '—' }}</small></td>
+                            <td class="text-end">{{ '%g'|format(item.quantity) }}</td>
+                            <td class="text-end">€{{ '%.2f'|format(item.unit_cost) }}</td>
+                            <td class="text-end"><strong>€{{ '%.2f'|format(item.total) }}</strong></td>
+                            <td>
+                                <form method="POST"
+                                      action="{{ url_for('events.delete_line_item', event_id=event.id, item_id=item.id) }}"
+                                      onsubmit="return confirm('Remove this item?')">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-1 border-0"
+                                            title="Remove item">
+                                        <i class="bi bi-x-lg small"></i>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot class="table-light">
+                        <tr>
+                            <td colspan="5" class="text-end fw-bold">Grand Total</td>
+                            <td class="text-end fw-bold text-success">€{{ '%.2f'|format(event.total_cost) }}</td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            {% else %}
+            <div class="card-body text-center py-4 text-muted">
+                <i class="bi bi-inbox fs-2 d-block mb-2 opacity-25"></i>
+                No line items yet. Add parts and labour below.
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Add Line Item Form -->
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bi bi-plus-circle me-2"></i>Add Line Item</h6>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('events.add_line_item', event_id=event.id) }}">
+                    {{ form.hidden_tag() }}
+                    <div class="row g-2 align-items-end">
+                        <div class="col-12 col-md-3">
+                            {{ form.description.label(class="form-label form-label-sm mb-1") }}
+                            {{ form.description(class="form-control form-control-sm" + (" is-invalid" if form.description.errors else ""),
+                               placeholder="e.g. Castrol Edge 5W-30 1L") }}
+                            {% for error in form.description.errors %}
+                                <div class="invalid-feedback">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                        <div class="col-6 col-md-2">
+                            {{ form.item_type.label(class="form-label form-label-sm mb-1") }}
+                            {{ form.item_type(class="form-select form-select-sm") }}
+                        </div>
+                        <div class="col-6 col-md-2">
+                            {{ form.part_number.label(class="form-label form-label-sm mb-1") }}
+                            {{ form.part_number(class="form-control form-control-sm", placeholder="Optional") }}
+                        </div>
+                        <div class="col-4 col-md-1">
+                            {{ form.quantity.label(class="form-label form-label-sm mb-1") }}
+                            {{ form.quantity(class="form-control form-control-sm" + (" is-invalid" if form.quantity.errors else ""),
+                               step="0.01", min="0.001", value="1") }}
+                        </div>
+                        <div class="col-8 col-md-2">
+                            {{ form.unit_cost.label(class="form-label form-label-sm mb-1") }}
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text">€</span>
+                                {{ form.unit_cost(class="form-control form-control-sm" + (" is-invalid" if form.unit_cost.errors else ""),
+                                   step="0.01", min="0", value="0.00") }}
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-2">
+                            <label class="form-label form-label-sm mb-1 d-none d-md-block">&nbsp;</label>
+                            {{ form.submit(class="btn btn-primary btn-sm w-100") }}
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% endblock content %}

@@ -1,0 +1,95 @@
+{% extends "layout.html" %}
+{% block content %}
+
+<div class="row justify-content-center mt-4">
+    <div class="col-sm-8 col-md-6 col-lg-5">
+
+        <!-- Step indicator -->
+        <div class="d-flex align-items-center gap-3 mb-4">
+            <span class="step-badge active">1</span>
+            <span class="fw-semibold">Look Up Plate</span>
+            <i class="bi bi-chevron-right text-muted"></i>
+            <span class="step-badge">2</span>
+            <span class="text-muted">Car Details</span>
+        </div>
+
+        <div class="card shadow-sm">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-search me-2"></i>Enter Registration</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted small mb-4">
+                    Enter the Irish registration plate. We'll look up the vehicle details and pre-fill the form for you.
+                </p>
+                <form method="POST" action="{{ url_for('cars.add_car_step1') }}">
+                    {{ form.hidden_tag() }}
+
+                    <div class="mb-4">
+                        {{ form.registration.label(class="form-label fw-semibold") }}
+                        {{ form.registration(
+                            class="form-control form-control-lg reg-input" + (" is-invalid" if form.registration.errors else ""),
+                            placeholder="e.g. 231-D-12345",
+                            autofocus=true,
+                            autocomplete="off",
+                            style="font-family: 'Courier New', monospace; font-weight: bold; text-transform: uppercase; letter-spacing: 2px; font-size: 1.4rem;"
+                        ) }}
+                        {% for error in form.registration.errors %}
+                            <div class="invalid-feedback">{{ error }}</div>
+                        {% endfor %}
+                        <div class="form-text mt-2">
+                            <i class="bi bi-info-circle me-1"></i>
+                            Dashes and spaces are optional — e.g. <code>231D12345</code> or <code>231-D-12345</code>.
+                            {% if config.get('VEHICLE_LOOKUP_USERNAME') %}
+                            Full vehicle details will be retrieved from <strong>regcheck.org.uk</strong>.
+                            {% else %}
+                            Year and county will be parsed from the plate. To enable full vehicle lookup, set
+                            <code>VEHICLE_LOOKUP_USERNAME</code> in <code>config.json</code>.
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="d-grid gap-2">
+                        {{ form.submit(class="btn btn-primary btn-lg") }}
+                        <a href="{{ url_for('cars.cars_list') }}" class="btn btn-outline-secondary">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<style>
+.step-badge {
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 0.9rem;
+    background-color: #e9ecef;
+    color: #6c757d;
+    flex-shrink: 0;
+}
+.step-badge.active {
+    background-color: #0d6efd;
+    color: #fff;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var reg = document.querySelector('[name="registration"]');
+    if (reg) {
+        reg.addEventListener('input', function () {
+            var pos = this.selectionStart;
+            this.value = this.value.toUpperCase();
+            this.setSelectionRange(pos, pos);
+        });
+    }
+});
+</script>
+
+{% endblock content %}

@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 42">
+  <rect width="30" height="42" fill="#003399"/>
+  <!-- 5-pointed star polygon centred at origin, outer R≈2.2, inner r≈0.85 -->
+  <defs>
+    <polygon id="s" fill="#FFD700"
+      points="0,-2.2 0.5,-0.69 2.09,-0.68 0.81,0.26 1.29,1.78 0,0.85 -1.29,1.78 -0.81,0.26 -2.09,-0.68 -0.5,-0.69"/>
+  </defs>
+  <!-- 12 stars at 30° intervals, circle centre (15,18) radius 8 -->
+  <use href="#s" transform="translate(15,10)"/>
+  <use href="#s" transform="translate(19,11)"/>
+  <use href="#s" transform="translate(22,14)"/>
+  <use href="#s" transform="translate(23,18)"/>
+  <use href="#s" transform="translate(22,22)"/>
+  <use href="#s" transform="translate(19,25)"/>
+  <use href="#s" transform="translate(15,26)"/>
+  <use href="#s" transform="translate(11,25)"/>
+  <use href="#s" transform="translate(8,22)"/>
+  <use href="#s" transform="translate(7,18)"/>
+  <use href="#s" transform="translate(8,14)"/>
+  <use href="#s" transform="translate(11,11)"/>
+  <!-- IRL label -->
+  <text x="15" y="37" fill="#FFD700" font-family="Arial,sans-serif" font-size="6"
+        font-weight="bold" text-anchor="middle">IRL</text>
+</svg>

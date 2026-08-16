@@ -1,0 +1,149 @@
+/* =========================================================
+   Garage System — main.css
+   ========================================================= */
+
+body {
+    padding-top: 70px;
+    padding-bottom: 40px;
+    background-color: #f4f6f9;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.main-content {
+    flex: 1;
+    padding-top: 1.5rem;
+    padding-bottom: 2rem;
+}
+
+footer {
+    margin-top: auto;
+}
+
+/* ── Registration plate styling ─────────────────────────── */
+.reg-plate {
+    display: inline-flex;
+    align-items: center;
+    border: 2px solid #222;
+    border-radius: 4px;
+    overflow: hidden;
+    vertical-align: middle;
+    font-family: 'Arial Black', 'Arial Bold', Arial, sans-serif;
+    font-weight: 900;
+    font-size: 1rem;
+    letter-spacing: 4px;
+    background-color: #fff;
+    color: #000;
+    text-transform: uppercase;
+    padding: 4px 12px 4px 0;
+}
+
+/* EU/IRL left band — 12-star circle SVG */
+.reg-plate::before {
+    content: "";
+    align-self: stretch;
+    min-width: 28px;
+    background-color: #003399;
+    background-image: url('eu-strip.svg');
+    background-repeat: no-repeat;
+    background-size: 100% 100%;
+    margin-top: -4px;
+    margin-bottom: -4px;
+    margin-right: 12px;
+}
+
+.reg-plate-sm {
+    font-size: 0.8rem;
+    letter-spacing: 3px;
+    padding: 2px 8px 2px 0;
+}
+
+.reg-plate-sm::before {
+    min-width: 22px;
+    margin-top: -2px;
+    margin-bottom: -2px;
+    margin-right: 8px;
+}
+
+/* ── Stat cards ──────────────────────────────────────────── */
+.stat-card {
+    border-left: 4px solid transparent;
+    border-radius: 0.5rem;
+    transition: box-shadow 0.2s;
+}
+.stat-card:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+.stat-card.primary  { border-left-color: #0d6efd; }
+.stat-card.success  { border-left-color: #198754; }
+.stat-card.warning  { border-left-color: #ffc107; }
+.stat-card.danger   { border-left-color: #dc3545; }
+
+/* ── Car cards ───────────────────────────────────────────── */
+.car-card {
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    cursor: pointer;
+}
+.car-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+}
+
+/* ── Event list card ─────────────────────────────────────── */
+.event-card {
+    transition: border-color 0.1s ease;
+}
+.event-card:hover {
+    border-color: #0d6efd;
+}
+
+/* ── Section heading ─────────────────────────────────────── */
+.section-heading {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #6c757d;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid #e9ecef;
+    margin-bottom: 1rem;
+}
+
+/* ── Table tweaks ────────────────────────────────────────── */
+.table thead th {
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    font-weight: 600;
+}
+
+/* ── Breadcrumb tweaks ───────────────────────────────────── */
+.breadcrumb {
+    font-size: 0.85rem;
+}
+
+/* ── Form improvements ───────────────────────────────────── */
+.form-label {
+    font-size: 0.875rem;
+}
+
+/* ── Cards ───────────────────────────────────────────────── */
+.card-header {
+    background-color: #fff;
+    border-bottom: 1px solid #e9ecef;
+    font-weight: 600;
+}
+
+/* ── Navbar brand colour ─────────────────────────────────── */
+.navbar-brand {
+    font-size: 1.1rem;
+}
+
+/* ── Responsive table scroll ─────────────────────────────── */
+@media (max-width: 576px) {
+    .reg-plate {
+        font-size: 0.85rem;
+        padding-right: 7px;
+    }
+}

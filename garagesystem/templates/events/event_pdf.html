@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Service Record — {{ car.registration }}</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 1.5cm 1.5cm 2cm 1.5cm;
+        }
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 11px;
+            color: #222;
+            line-height: 1.4;
+        }
+        .header {
+            border-bottom: 3px solid #1a1a2e;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+        .header-title {
+            font-size: 20px;
+            font-weight: bold;
+            color: #1a1a2e;
+            margin: 0;
+        }
+        .header-sub {
+            font-size: 10px;
+            color: #666;
+            margin: 3px 0 0 0;
+        }
+        .reg-number {
+            font-family: Arial, sans-serif;
+            font-weight: bold;
+            font-size: 18px;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            color: #1a1a2e;
+        }
+        .section {
+            margin-bottom: 14px;
+        }
+        .section-title {
+            font-size: 10px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            background-color: #1a1a2e;
+            color: #fff;
+            padding: 4px 8px;
+            margin-bottom: 0;
+        }
+        .info-table {
+            width: 100%;
+            border-collapse: collapse;
+            border: 1px solid #ddd;
+        }
+        .info-table td {
+            padding: 4px 8px;
+            border: 1px solid #ddd;
+            font-size: 10px;
+            vertical-align: top;
+        }
+        .info-table .label {
+            font-weight: bold;
+            background-color: #f5f5f5;
+            width: 18%;
+            color: #444;
+        }
+        .items-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .items-table th {
+            background-color: #1a1a2e;
+            color: #fff;
+            padding: 5px 8px;
+            text-align: left;
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .items-table td {
+            padding: 4px 8px;
+            font-size: 10px;
+        }
+        .items-table .item-row td {
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .items-table tr:nth-child(even) td {
+            background-color: #f9f9f9;
+        }
+        .text-right {
+            text-align: right;
+        }
+        .subtotal-row td {
+            padding-top: 4px;
+            padding-bottom: 4px;
+            padding-left: 8px;
+            padding-right: 12px;
+            color: #555;
+            border: 0;
+            font-size: 10px;
+        }
+        .total-row td {
+            font-weight: bold;
+            color: #1a1a2e;
+            border: 0;
+            font-size: 12px;
+            padding-top: 6px;
+            padding-bottom: 4px;
+            padding-left: 8px;
+            padding-right: 12px;
+        }
+        .spacer-row td {
+            border: 0;
+            padding: 0;
+            background-color: #fff;
+            height: 8px;
+            font-size: 1px;
+            line-height: 1px;
+        }
+        p.row-text {
+            margin-top: 6px;
+            margin-bottom: 0;
+            padding: 0;
+        }
+        .notes-box {
+            border: 1px solid #ddd;
+            padding: 8px;
+            font-size: 10px;
+            min-height: 30px;
+            background-color: #fafafa;
+        }
+        .footer {
+            border-top: 1px solid #ddd;
+            padding-top: 6px;
+            font-size: 9px;
+            color: #999;
+            text-align: center;
+            margin-top: 20px;
+        }
+        .badge {
+            display: inline-block;
+            padding: 1px 5px;
+            font-size: 9px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <table width="100%">
+        <tr>
+            <td>
+                <p class="header-title">Service Record</p>
+            </td>
+            <td width="180" style="text-align: right; vertical-align: top;">
+                <span class="reg-number">{{ car.registration | format_reg }}</span>
+            </td>
+        </tr>
+    </table>
+</div>
+
+<!-- Vehicle Details -->
+<div class="section">
+    <div class="section-title">Vehicle</div>
+    <table class="info-table">
+        <tr>
+            <td class="label">Registration</td>
+            <td><strong>{{ car.registration }}</strong></td>
+            <td class="label">Make / Model</td>
+            <td>{{ car.make }} {{ car.model }}</td>
+        </tr>
+        <tr>
+            <td class="label">Year</td>
+            <td>{{ car.year or '—' }}</td>
+            <td class="label">Fuel Type</td>
+            <td>{{ car.fuel_type or '—' }}</td>
+        </tr>
+        <tr>
+            <td class="label">Engine</td>
+            <td>{{ car.engine_size or '—' }}</td>
+            <td class="label">Transmission</td>
+            <td>{{ car.transmission or '—' }}</td>
+        </tr>
+        {% if car.vin %}
+        <tr>
+            <td class="label">VIN</td>
+            <td colspan="3">{{ car.vin }}</td>
+        </tr>
+        {% endif %}
+    </table>
+</div>
+
+<!-- Event Details -->
+<div class="section">
+    <div class="section-title">Event Details</div>
+    <table class="info-table">
+        <tr>
+            <td class="label">Title</td>
+            <td colspan="3"><strong>{{ event.title }}</strong></td>
+        </tr>
+        <tr>
+            <td class="label">Type</td>
+            <td><span class="badge">{{ event.event_type }}</span></td>
+            <td class="label">Date</td>
+            <td>{{ event.date.strftime('%d/%m/%Y') }}</td>
+        </tr>
+        {% if event.mileage_at_event %}
+        <tr>
+            <td class="label">Mileage</td>
+            <td>{{ '{:,}'.format(event.mileage_at_event) }} km</td>
+            <td class="label">Invoice No.</td>
+            <td>{{ event.invoice_number or '—' }}</td>
+        </tr>
+        {% elif event.invoice_number %}
+        <tr>
+            <td class="label">Invoice No.</td>
+            <td colspan="3">{{ event.invoice_number }}</td>
+        </tr>
+        {% endif %}
+        {% if event.garage_name %}
+        <tr>
+            <td class="label">Garage</td>
+            <td>{{ event.garage_name }}</td>
+            <td class="label">Address</td>
+            <td>{{ event.garage_address or '—' }}</td>
+        </tr>
+        {% endif %}
+    </table>
+</div>
+
+<!-- Line Items -->
+{% if event.line_items %}
+<div class="section">
+    <div class="section-title">Work Carried Out / Parts Used</div>
+    <table class="items-table">
+        <thead>
+            <tr>
+                <th style="width:42%">Description</th>
+                <th style="width:12%">Type</th>
+                <th style="width:16%">Part No.</th>
+                <th style="width:8%" class="text-right">Qty</th>
+                <th style="width:11%" class="text-right">Unit Cost</th>
+                <th style="width:11%" class="text-right">Total</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in event.line_items %}
+            <tr class="item-row">
+                <td>{{ item.description }}</td>
+                <td>{{ item.item_type }}</td>
+                <td><small>{{ item.part_number or '—' }}</small></td>
+                <td class="text-right">{{ '%g'|format(item.quantity) }}</td>
+                <td class="text-right">€{{ '%.2f'|format(item.unit_cost) }}</td>
+                <td class="text-right">€{{ '%.2f'|format(item.total) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <table class="items-table" style="margin-top: 8px;">
+        {% if event.labour_cost > 0 %}
+        <tr class="subtotal-row">
+            <td width="85%" class="text-right">Labour Total:</td>
+            <td width="15%" class="text-right">€{{ '%.2f'|format(event.labour_cost) }}</td>
+        </tr>
+        {% endif %}
+        {% if event.parts_cost > 0 %}
+        <tr class="subtotal-row">
+            <td width="85%" class="text-right">Parts &amp; Consumables:</td>
+            <td width="15%" class="text-right">€{{ '%.2f'|format(event.parts_cost) }}</td>
+        </tr>
+        {% endif %}
+        <tr class="total-row">
+            <td width="85%" class="text-right">Grand Total:</td>
+            <td width="15%" class="text-right">€{{ '%.2f'|format(event.total_cost) }}</td>
+        </tr>
+    </table>
+</div>
+{% endif %}
+
+<!-- Notes -->
+{% if event.notes %}
+<div class="section">
+    <div class="section-title">Notes</div>
+    <div class="notes-box">{{ event.notes }}</div>
+</div>
+{% endif %}
+
+<div class="footer">
+    Service Record &bull; {{ car.registration }} &bull; {{ car.make }} {{ car.model }} &bull; {{ event.date.strftime('%d/%m/%Y') }}
+</div>
+
+</body>
+</html>

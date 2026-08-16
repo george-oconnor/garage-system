@@ -1,0 +1,158 @@
+{% extends "layout.html" %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0"><i class="bi bi-speedometer2 me-2 text-primary"></i>Dashboard</h2>
+    <a href="{{ url_for('cars.add_car_step1') }}" class="btn btn-primary">
+        <i class="bi bi-plus-circle me-1"></i>Add Car
+    </a>
+</div>
+
+<!-- Stats -->
+<div class="row g-3 mb-4">
+    <div class="col-sm-4">
+        <div class="card stat-card primary h-100">
+            <div class="card-body d-flex align-items-center">
+                <div class="me-3 fs-1 text-primary opacity-50"><i class="bi bi-car-front"></i></div>
+                <div>
+                    <div class="fs-2 fw-bold">{{ cars|length }}</div>
+                    <div class="text-muted small text-uppercase">Cars</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-4">
+        <div class="card stat-card success h-100">
+            <div class="card-body d-flex align-items-center">
+                <div class="me-3 fs-1 text-success opacity-50"><i class="bi bi-clipboard-check"></i></div>
+                <div>
+                    <div class="fs-2 fw-bold">{{ total_events }}</div>
+                    <div class="text-muted small text-uppercase">Service Events</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-4">
+        <div class="card stat-card warning h-100">
+            <div class="card-body d-flex align-items-center">
+                <div class="me-3 fs-1 text-warning opacity-50"><i class="bi bi-currency-euro"></i></div>
+                <div>
+                    <div class="fs-2 fw-bold">€{{ '%.2f'|format(total_spend) }}</div>
+                    <div class="text-muted small text-uppercase">Total Spend</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if cars %}
+<!-- Cars Grid -->
+<h5 class="section-heading"><i class="bi bi-car-front me-2"></i>Your Cars</h5>
+<div class="row g-3 mb-5">
+    {% for car in cars %}
+    <div class="col-md-6 col-lg-4">
+        <a href="{{ url_for('cars.view_car', car_id=car.id) }}" class="text-decoration-none">
+            <div class="card car-card h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <span class="reg-plate">{{ car.registration | format_reg }}</span>
+                        {% if car.fuel_type %}
+                        <span class="badge bg-light text-dark border">{{ car.fuel_type }}</span>
+                        {% endif %}
+                    </div>
+                    <h6 class="card-title text-dark mb-1">{{ car.make }} {{ car.model }}</h6>
+                    <p class="text-muted small mb-2">
+                        {% if car.year %}{{ car.year }}{% endif %}
+                        {% if car.engine_size %} · {{ car.engine_size }}{% endif %}
+                        {% if car.transmission %} · {{ car.transmission }}{% endif %}
+                    </p>
+                    <div class="d-flex justify-content-between text-muted small">
+                        <span><i class="bi bi-clipboard-check me-1"></i>{{ car.event_count }} event(s)</span>
+                        {% if car.latest_mileage %}
+                        <span><i class="bi bi-speedometer2 me-1"></i>{{ '{:,}'.format(car.latest_mileage) }} km</span>
+                        {% endif %}
+                    </div>
+                    {% if car.total_service_spend > 0 %}
+                    <div class="mt-2 text-muted small">
+                        <i class="bi bi-currency-euro me-1"></i>{{ '%.2f'|format(car.total_service_spend) }} total spent
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </a>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if recent_events %}
+<!-- Recent Events -->
+<h5 class="section-heading"><i class="bi bi-clock-history me-2"></i>Recent Events</h5>
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead class="table-dark">
+                <tr>
+                    <th>Date</th>
+                    <th>Car</th>
+                    <th>Event</th>
+                    <th>Type</th>
+                    <th class="text-end">Cost</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% set event_type_badges = {
+                    'Service': 'primary',
+                    'Repair': 'danger',
+                    'Maintenance': 'warning text-dark',
+                    'NCT': 'info text-dark',
+                    'Tax': 'secondary',
+                    'Insurance': 'secondary',
+                    'Inspection': 'info text-dark',
+                    'Modification': 'dark',
+                    'Purchase': 'success',
+                    'Other': 'secondary'
+                } %}
+                {% for event in recent_events %}
+                <tr>
+                    <td class="text-nowrap">{{ event.date.strftime('%d/%m/%Y') }}</td>
+                    <td>
+                        <a href="{{ url_for('cars.view_car', car_id=event.car.id) }}" class="text-decoration-none">
+                            <span class="reg-plate reg-plate-sm">{{ event.car.registration | format_reg }}</span>
+                        </a>
+                    </td>
+                    <td>
+                        <a href="{{ url_for('events.view_event', event_id=event.id) }}" class="text-decoration-none text-dark">
+                            {{ event.title }}
+                        </a>
+                    </td>
+                    <td>
+                        <span class="badge bg-{{ event_type_badges.get(event.event_type, 'secondary') }}">
+                            {{ event.event_type }}
+                        </span>
+                    </td>
+                    <td class="text-end">
+                        {% if event.total_cost > 0 %}
+                            <strong>€{{ '%.2f'|format(event.total_cost) }}</strong>
+                        {% else %}
+                            <span class="text-muted">—</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="text-center py-5 text-muted">
+    <i class="bi bi-car-front fs-1 d-block mb-3 opacity-25"></i>
+    <h5>No cars yet</h5>
+    <p>Add your first car to get started.</p>
+    <a href="{{ url_for('cars.add_car_step1') }}" class="btn btn-primary">
+        <i class="bi bi-plus-circle me-1"></i>Add Your First Car
+    </a>
+</div>
+{% endif %}
+
+{% endblock content %}
