@@ -15,6 +15,32 @@ def convert_mileage_to_km(value, unit):
         return value
     return round(value * KM_PER_MILE)
 
+
+def estimate_mileage_at_date(anchors, target_date):
+    """Estimate a mileage reading at `target_date` by linear interpolation.
+
+    `anchors` is an iterable of (date, mileage) tuples representing known
+    readings. Returns None if `target_date` isn't bracketed by an anchor on
+    both sides (interpolation only — never extrapolates beyond known data).
+    Display-only: never persisted, so it stays accurate as real readings are
+    added and simply gets recomputed on the next page load.
+    """
+    before = None
+    after = None
+    for d, m in anchors:
+        if d <= target_date and (before is None or d > before[0]):
+            before = (d, m)
+        if d >= target_date and (after is None or d < after[0]):
+            after = (d, m)
+    if before is None or after is None:
+        return None
+    if before[0] == after[0]:
+        return before[1]
+    total_days = (after[0] - before[0]).days
+    elapsed_days = (target_date - before[0]).days
+    fraction = elapsed_days / total_days
+    return round(before[1] + (after[1] - before[1]) * fraction)
+
 IRISH_COUNTY_CODES = {
     'C': 'Cork', 'CE': 'Clare', 'CN': 'Cavan', 'CW': 'Carlow',
     'D': 'Dublin', 'DL': 'Donegal',

@@ -8,7 +8,7 @@ from garagesystem.models import Car, MileageLog
 from garagesystem.cars.forms import PlateSearchForm, AddCarForm, EditCarForm, AddMileageForm
 from garagesystem.cars.utils import (
     parse_irish_plate, lookup_vehicle_api, normalize_fuel_type, normalize_transmission,
-    fetch_car_image, convert_mileage_to_km,
+    fetch_car_image, convert_mileage_to_km, estimate_mileage_at_date,
 )
 
 cars = Blueprint('cars', __name__)
@@ -123,7 +123,23 @@ def add_car_details():
 def view_car(car_id):
     car = Car.query.get_or_404(car_id)
     mileage_form = AddMileageForm()
-    return render_template('cars/view_car.html', title=str(car), car=car, mileage_form=mileage_form)
+
+    # For events with no logged mileage, estimate one for the chart only (never
+    # persisted) by interpolating between known mileage readings around its date.
+    anchors = [(log.date, log.mileage) for log in car.mileage_logs]
+    event_mileages = {}
+    for event in car.service_events:
+        if event.mileage_at_event:
+            event_mileages[event.id] = (event.mileage_at_event, False)
+        else:
+            estimated = estimate_mileage_at_date(anchors, event.date)
+            if estimated is not None:
+                event_mileages[event.id] = (estimated, True)
+
+    return render_template(
+        'cars/view_car.html', title=str(car), car=car, mileage_form=mileage_form,
+        event_mileages=event_mileages,
+    )
 
 
 @cars.route('/cars/<int:car_id>/edit', methods=['GET', 'POST'])

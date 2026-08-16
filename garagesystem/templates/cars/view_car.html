@@ -55,9 +55,11 @@
         {% set _ = _chart_logs.append(_l) %}
     {% endif %}
 {% endfor %}
+{# Events without a logged mileage still get a chart marker if event_mileages could
+   estimate one (interpolated between surrounding real readings) — display only. #}
 {% set _chart_events = [] %}
 {% for _e in car.ordered_events %}
-    {% if _e.mileage_at_event %}{% set _ = _chart_events.append(_e) %}{% endif %}
+    {% if _e.id in event_mileages %}{% set _ = _chart_events.append(_e) %}{% endif %}
 {% endfor %}
 <div class="card mb-4">
     <div class="card-header d-flex justify-content-between align-items-center">
@@ -309,9 +311,13 @@
 {% for _l in _chart_logs %}
     {% set _ = mileage_points.append({'x': _l.date.strftime('%Y-%m-%d'), 'y': _l.mileage, 'src': 'log'}) %}
 {% endfor %}
-{# Events with a mileage reading also belong on the line so the trend stays continuous. #}
+{# Events with a *real* logged mileage reading also belong on the trend line so it
+   stays continuous. Estimated (interpolated) event mileages never feed the line —
+   only real readings do. #}
 {% for _e in _chart_events %}
-    {% set _ = mileage_points.append({'x': _e.date.strftime('%Y-%m-%d'), 'y': _e.mileage_at_event, 'src': 'event'}) %}
+    {% if not event_mileages[_e.id][1] %}
+        {% set _ = mileage_points.append({'x': _e.date.strftime('%Y-%m-%d'), 'y': _e.mileage_at_event, 'src': 'event'}) %}
+    {% endif %}
 {% endfor %}
 {# The purchase reading also anchors the line, but is rendered separately as a star. #}
 {% if _has_purchase %}
@@ -322,11 +328,12 @@
 {% for _e in _chart_events %}
     {% set _ = event_points.append({
         'x': _e.date.strftime('%Y-%m-%d'),
-        'y': _e.mileage_at_event,
+        'y': event_mileages[_e.id][0],
         'title': _e.title,
         'type': _e.event_type,
         'url': url_for('events.view_event', event_id=_e.id),
         'color': _event_colors.get(_e.event_type, '#6c757d'),
+        'estimated': event_mileages[_e.id][1],
     }) %}
 {% endfor %}
 {% set purchase_point = {'x': car.purchase_date.strftime('%Y-%m-%d'), 'y': car.purchase_mileage} if _has_purchase else none %}
@@ -358,7 +365,7 @@
                 var p = ctx.raw || {};
                 return (p.src === 'event' || p.src === 'purchase') ? 0 : 5;
             },
-            tension: 0.2,
+            tension: 0,
             fill: true,
             order: 3,
         });
@@ -377,6 +384,16 @@
             order: 1,
         });
     }
+    // Opaque tint (not alpha transparency) so estimated markers still look muted
+    // without letting whatever's underneath (e.g. the trend line) show through.
+    function tintWithWhite(hex, ratio) {
+        var m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+        if (!m) return hex;
+        var r = parseInt(m[1], 16), g = parseInt(m[2], 16), b = parseInt(m[3], 16);
+        var mix = function (c) { return Math.round(c * (1 - ratio) + 255 * ratio); };
+        return 'rgb(' + mix(r) + ',' + mix(g) + ',' + mix(b) + ')';
+    }
+
     if (eventPoints.length) {
         datasets.push({
             type: 'scatter',
@@ -386,8 +403,14 @@
             pointRadius: 8,
             pointHoverRadius: 10,
             borderWidth: 1.5,
+            borderDash: function (ctx) {
+                var p = (ctx.raw) || {};
+                return p.estimated ? [3, 2] : [];
+            },
             borderColor: '#000',
-            backgroundColor: eventPoints.map(function (p) { return p.color; }),
+            backgroundColor: eventPoints.map(function (p) {
+                return p.estimated ? tintWithWhite(p.color, 0.55) : p.color;
+            }),
             order: 1,
         });
     }
@@ -433,7 +456,7 @@
                     callbacks: {
                         label: function (ctx) {
                             var p = ctx.raw || {};
-                            var km = Number(p.y).toLocaleString() + ' km';
+                            var km = Number(p.y).toLocaleString() + ' km' + (p.estimated ? ' (estimated)' : '');
                             if (ctx.dataset.label === 'Service Events') {
                                 return [p.title + ' (' + p.type + ')', km];
                             }
