@@ -18,7 +18,7 @@
                 <span class="reg-plate">{{ car.registration | format_reg }}</span>
             </div>
             <div class="card-body">
-                <form method="POST" action="{{ url_for('cars.edit_car', car_id=car.id) }}" enctype="multipart/form-data">
+                <form method="POST" action="{{ url_for('cars.edit_car', car_id=car.id) }}" enctype="multipart/form-data" id="editCarForm">
                     {{ form.hidden_tag() }}
 
                     <div class="mb-3">
@@ -161,14 +161,16 @@
 
                     <div class="mb-3">
                         {{ form.image.label(class="form-label") }}
-                        {% if car.image_custom %}
-                        <div class="mb-2">
-                            <img src="{{ url_for('static', filename='car_images/' + car.image_custom) }}"
-                                 style="max-height:120px;border-radius:6px;" alt="Current photo">
-                            <div class="text-muted small mt-1">Current photo &mdash; upload a new one to replace it.</div>
+                        <div class="mb-2" id="imagePreviewWrap" {% if not car.image_custom %}style="display:none;"{% endif %}>
+                            <img id="imagePreview"
+                                 src="{% if car.image_custom %}{{ url_for('static', filename='car_images/' + car.image_custom) }}{% endif %}"
+                                 style="max-height:120px;border-radius:6px;" alt="Photo preview">
+                            <div class="text-muted small mt-1" id="imagePreviewCaption">
+                                {% if car.image_custom %}Current photo &mdash; upload a new one to replace it.{% endif %}
+                            </div>
                         </div>
-                        {% endif %}
                         {{ form.image(class="form-control") }}
+                        <div class="form-text">Pick a photo and you'll be asked to crop it before it's saved.</div>
                     </div>
 
                     <div class="d-flex gap-2">
@@ -180,5 +182,99 @@
         </div>
     </div>
 </div>
+
+<!-- Crop Photo Modal -->
+<div class="modal fade" id="cropModal" tabindex="-1" aria-labelledby="cropModalLabel" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="cropModalLabel"><i class="bi bi-crop me-2"></i>Crop Photo</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div style="max-height:60vh;overflow:hidden;">
+                    <img id="cropTargetImage" src="" alt="Photo to crop" style="max-width:100%;">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="cropApplyBtn"><i class="bi bi-crop me-1"></i>Crop &amp; Use</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.css">
+<script src="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.js"></script>
+<script>
+(function () {
+    var fileInput = document.getElementById('image');
+    var cropModalEl = document.getElementById('cropModal');
+    var cropModal = new bootstrap.Modal(cropModalEl);
+    var cropImage = document.getElementById('cropTargetImage');
+    var applyBtn = document.getElementById('cropApplyBtn');
+    var previewWrap = document.getElementById('imagePreviewWrap');
+    var previewImg = document.getElementById('imagePreview');
+    var previewCaption = document.getElementById('imagePreviewCaption');
+    var cropper = null;
+    var croppedApplied = false;
+
+    fileInput.addEventListener('change', function () {
+        var file = fileInput.files[0];
+        if (!file) return;
+        croppedApplied = false;
+        var reader = new FileReader();
+        reader.onload = function (e) {
+            cropImage.src = e.target.result;
+            cropModal.show();
+        };
+        reader.readAsDataURL(file);
+    });
+
+    cropModalEl.addEventListener('shown.bs.modal', function () {
+        if (cropper) cropper.destroy();
+        cropper = new Cropper(cropImage, {
+            aspectRatio: 4 / 3,
+            viewMode: 1,
+            autoCropArea: 1,
+            background: false,
+        });
+    });
+
+    cropModalEl.addEventListener('hidden.bs.modal', function () {
+        if (cropper) {
+            cropper.destroy();
+            cropper = null;
+        }
+        if (!croppedApplied) {
+            fileInput.value = '';
+        }
+    });
+
+    applyBtn.addEventListener('click', function () {
+        if (!cropper) return;
+        cropper.getCroppedCanvas({ width: 1200, height: 900, imageSmoothingQuality: 'high' }).toBlob(function (blob) {
+            var croppedFile = new File([blob], 'car-photo.jpg', { type: 'image/jpeg' });
+            var dt = new DataTransfer();
+            dt.items.add(croppedFile);
+            fileInput.files = dt.files;
+
+            previewImg.src = URL.createObjectURL(blob);
+            previewCaption.textContent = 'New photo (cropped) — will replace the current one on save.';
+            previewWrap.style.display = '';
+
+            croppedApplied = true;
+            cropModal.hide();
+        }, 'image/jpeg', 0.85);
+    });
+
+    var form = document.getElementById('editCarForm');
+    var submitBtn = document.getElementById('submit');
+    form.addEventListener('submit', function () {
+        submitBtn.disabled = true;
+        submitBtn.value = 'Saving…';
+    });
+})();
+</script>
 
 {% endblock content %}
