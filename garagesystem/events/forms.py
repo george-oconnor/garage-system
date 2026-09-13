@@ -65,6 +65,7 @@ class AddEventForm(FlaskForm):
     nct_result = SelectField('NCT Result', choices=NCT_RESULTS, validators=[Optional()])
     nct_cert = FileField('NCT Certificate (PDF)',
                          validators=[Optional(), FileAllowed(['pdf'], 'PDF files only.')])
+    nct_next_due = DateField('Next NCT Due (optional override)', validators=[Optional()])
     submit = SubmitField('Save Event')
 
 
@@ -91,6 +92,7 @@ class EditEventForm(FlaskForm):
     nct_cert = FileField('Replace NCT Certificate (PDF)',
                          validators=[Optional(), FileAllowed(['pdf'], 'PDF files only.')])
     remove_nct_cert = BooleanField('Remove existing certificate')
+    nct_next_due = DateField('Next NCT Due (optional override)', validators=[Optional()])
     submit = SubmitField('Update Event')
 
 

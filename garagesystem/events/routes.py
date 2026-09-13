@@ -116,13 +116,14 @@ def add_event(car_id):
     car = Car.query.get_or_404(car_id)
     form = AddEventForm()
     if form.validate_on_submit():
-        is_third_party = form.provider_type.data == 'ThirdParty'
+        # NCT tests are always carried out by a third-party test centre.
+        is_third_party = form.provider_type.data == 'ThirdParty' or form.event_type.data == 'NCT'
         mileage_km = convert_mileage_to_km(form.mileage_at_event.data, form.mileage_at_event_unit.data)
         event = ServiceEvent(
             car_id=car_id,
             title=form.title.data.strip(),
             event_type=form.event_type.data,
-            provider_type=form.provider_type.data,
+            provider_type='ThirdParty' if form.event_type.data == 'NCT' else form.provider_type.data,
             date=form.date.data,
             mileage_at_event=mileage_km,
             garage_name=(form.garage_name.data.strip() if form.garage_name.data else None) if is_third_party else None,
@@ -131,6 +132,7 @@ def add_event(car_id):
             notes=form.notes.data or None,
             total_cost_override=form.total_cost_override.data if is_third_party else None,
             nct_result=(form.nct_result.data or None) if form.event_type.data == 'NCT' else None,
+            nct_next_due=(form.nct_next_due.data if form.nct_result.data == 'Pass' else None) if form.event_type.data == 'NCT' else None,
         )
         db.session.add(event)
         # Update car mileage if this reading is higher
@@ -178,7 +180,8 @@ def edit_event(event_id):
     if form.validate_on_submit():
         event.title = form.title.data.strip()
         event.event_type = form.event_type.data
-        event.provider_type = form.provider_type.data
+        # NCT tests are always carried out by a third-party test centre.
+        event.provider_type = 'ThirdParty' if event.event_type == 'NCT' else form.provider_type.data
         event.date = form.date.data
         event.mileage_at_event = convert_mileage_to_km(form.mileage_at_event.data, form.mileage_at_event_unit.data)
         event.notes = form.notes.data or None
@@ -219,6 +222,7 @@ def edit_event(event_id):
         # NCT-specific handling
         if event.event_type == 'NCT':
             event.nct_result = form.nct_result.data or None
+            event.nct_next_due = form.nct_next_due.data if event.nct_result == 'Pass' else None
             # Remove existing cert if user asked
             if form.remove_nct_cert.data and event.nct_cert_filename:
                 _delete_nct_cert(event.nct_cert_filename)
@@ -235,6 +239,7 @@ def edit_event(event_id):
                 _delete_nct_cert(event.nct_cert_filename)
                 event.nct_cert_filename = None
             event.nct_result = None
+            event.nct_next_due = None
 
         if event.mileage_at_event:
             car = event.car
@@ -275,6 +280,10 @@ def delete_event(event_id):
 @login_required
 def add_line_item(event_id):
     event = ServiceEvent.query.get_or_404(event_id)
+    # NCT events are always third-party — no line items, use the certificate instead.
+    if event.event_type == 'NCT':
+        flash('NCT events are handled by a third-party test centre — line items cannot be added.', 'warning')
+        return redirect(url_for('events.view_event', event_id=event_id))
     # Block line items when the event's cost is captured via an uploaded invoice.
     if event.uses_invoice:
         flash('This event uses an uploaded invoice for its cost — line items cannot be added.', 'warning')

@@ -132,6 +132,9 @@ class ServiceEvent(db.Model):
     # NCT-specific fields (only meaningful when event_type == 'NCT')
     nct_result = db.Column(db.String(10), nullable=True)          # 'Pass' or 'Fail'
     nct_cert_filename = db.Column(db.String(200), nullable=True)  # uploaded PDF filename
+    # Manual override for the next NCT due date (Pass results only) — takes
+    # priority over the estimate derived from Irish NCT interval rules.
+    nct_next_due = db.Column(db.Date, nullable=True)
     date_added = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     date_modified = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 

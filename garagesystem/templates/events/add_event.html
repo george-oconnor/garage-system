@@ -46,7 +46,7 @@
                         </div>
                     </div>
 
-                    <div class="mb-3">
+                    <div id="provider-type-field" class="mb-3">
                         {{ form.provider_type.label(class="form-label fw-semibold") }}
                         {{ form.provider_type(class="form-select" + (" is-invalid" if form.provider_type.errors else "")) }}
                         <div class="form-text">
@@ -57,7 +57,6 @@
                             <div class="invalid-feedback">{{ error }}</div>
                         {% endfor %}
                     </div>
-
                     <div class="row g-3 mb-3">
                         <div class="col-md-6">
                             <div class="mb-3">
@@ -155,6 +154,14 @@
                                     <div class="invalid-feedback">{{ error }}</div>
                                 {% endfor %}
                             </div>
+                            <div class="col-md-4" id="nct-next-due-field" style="display:none;">
+                                {{ form.nct_next_due.label(class="form-label fw-semibold") }}
+                                {{ form.nct_next_due(class="form-control" + (" is-invalid" if form.nct_next_due.errors else ""), type="date") }}
+                                <div class="form-text">Leave blank to estimate this automatically.</div>
+                                {% for error in form.nct_next_due.errors %}
+                                    <div class="invalid-feedback">{{ error }}</div>
+                                {% endfor %}
+                            </div>
                         </div>
                     </div>
 
@@ -173,21 +180,32 @@
     var typeSelect = document.getElementById('{{ form.event_type.id }}');
     var nctBlock = document.getElementById('nct-fields');
     var providerSelect = document.getElementById('{{ form.provider_type.id }}');
+    var providerField = document.getElementById('provider-type-field');
     var thirdPartyBlock = document.getElementById('third-party-fields');
+    var nctResultSelect = document.getElementById('{{ form.nct_result.id }}');
+    var nctNextDueField = document.getElementById('nct-next-due-field');
     function toggleNct() {
-        if (typeSelect && nctBlock) {
-            nctBlock.style.display = (typeSelect.value === 'NCT') ? '' : 'none';
-        }
+        var isNct = !!(typeSelect && typeSelect.value === 'NCT');
+        if (nctBlock) nctBlock.style.display = isNct ? '' : 'none';
+        if (providerField) providerField.style.display = isNct ? 'none' : '';
+        if (isNct && providerSelect) providerSelect.value = 'ThirdParty';
+        toggleThirdParty();
+        toggleNctNextDue();
     }
     function toggleThirdParty() {
         if (providerSelect && thirdPartyBlock) {
             thirdPartyBlock.style.display = (providerSelect.value === 'ThirdParty') ? '' : 'none';
         }
     }
+    function toggleNctNextDue() {
+        if (nctNextDueField) {
+            nctNextDueField.style.display = (nctResultSelect && nctResultSelect.value === 'Pass') ? '' : 'none';
+        }
+    }
     if (typeSelect) typeSelect.addEventListener('change', toggleNct);
     if (providerSelect) providerSelect.addEventListener('change', toggleThirdParty);
+    if (nctResultSelect) nctResultSelect.addEventListener('change', toggleNctNextDue);
     toggleNct();
-    toggleThirdParty();
 })();
 </script>
 
