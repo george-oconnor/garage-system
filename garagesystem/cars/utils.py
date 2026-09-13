@@ -1,5 +1,7 @@
 import re
+import calendar
 import requests
+from datetime import date as _date, timedelta
 from flask import current_app
 
 KM_PER_MILE = 1.60934
@@ -40,6 +42,133 @@ def estimate_mileage_at_date(anchors, target_date):
     elapsed_days = (target_date - before[0]).days
     fraction = elapsed_days / total_days
     return round(before[1] + (after[1] - before[1]) * fraction)
+
+
+def add_months(d, months):
+    """Add calendar months to a date, clamping the day to the target month's length."""
+    month_index = d.month - 1 + months
+    year = d.year + month_index // 12
+    month = month_index % 12 + 1
+    day = min(d.day, calendar.monthrange(year, month)[1])
+    return _date(year, month, day)
+
+
+def compute_car_insights(car, today=None):
+    """Derive the stats shown on the Insights panel from the car's existing history.
+
+    Nothing here is persisted — it's recomputed on every page load so it always
+    reflects the latest mileage logs and events. Returns a dict with keys:
+    'annual_mileage', 'last_12_months_mileage', 'next_service', 'nct',
+    'cost_per_km', 'avg_cost_per_event' (any of which may be None if there
+    isn't enough data to derive them).
+    """
+    today = today or _date.today()
+    anchors = sorted(((log.date, log.mileage) for log in car.mileage_logs), key=lambda a: a[0])
+
+    insights = {
+        'annual_mileage': None,
+        'last_12_months_mileage': None,
+        'next_service': None,
+        'nct': None,
+        'cost_per_km': None,
+        'avg_cost_per_event': None,
+    }
+
+    # --- Annual mileage: rate of change between the earliest and latest known readings ---
+    if len(anchors) >= 2:
+        first_date, first_mileage = anchors[0]
+        last_date, last_mileage = anchors[-1]
+        span_days = (last_date - first_date).days
+        if span_days > 0 and last_mileage > first_mileage:
+            insights['annual_mileage'] = round((last_mileage - first_mileage) / span_days * 365.25)
+
+        # --- Last 12 months: actual mileage covered since ~12 months before the
+        # latest reading (interpolated), rather than the lifetime average above. ---
+        cutoff = add_months(last_date, -12)
+        mileage_at_cutoff = estimate_mileage_at_date(anchors, cutoff)
+        if mileage_at_cutoff is not None and last_mileage >= mileage_at_cutoff:
+            insights['last_12_months_mileage'] = round(last_mileage - mileage_at_cutoff)
+
+    latest_date, latest_mileage = anchors[-1] if anchors else (None, None)
+    if latest_mileage is None:
+        latest_mileage = car.latest_mileage
+
+    # --- Next service due: last 'Service' event + the car's service interval ---
+    service_events = sorted((e for e in car.service_events if e.event_type == 'Service'), key=lambda e: e.date)
+    if service_events:
+        last_service = service_events[-1]
+        baseline_mileage = last_service.mileage_at_event
+        if baseline_mileage is None:
+            baseline_mileage = estimate_mileage_at_date(anchors, last_service.date)
+
+        due_by_date = add_months(last_service.date, car.service_interval_months) if car.service_interval_months else None
+
+        due_mileage = None
+        if baseline_mileage is not None and car.service_interval_km:
+            due_mileage = baseline_mileage + car.service_interval_km
+
+        due_by_mileage_date = None
+        if due_mileage is not None and latest_mileage is not None and latest_date is not None and insights['annual_mileage']:
+            days_needed = (due_mileage - latest_mileage) / insights['annual_mileage'] * 365.25
+            due_by_mileage_date = latest_date + timedelta(days=days_needed)
+
+        candidates = [d for d in (due_by_date, due_by_mileage_date) if d is not None]
+        next_due_date = min(candidates) if candidates else None
+        overdue = bool(next_due_date and next_due_date < today) or bool(
+            due_mileage is not None and latest_mileage is not None and latest_mileage >= due_mileage
+        )
+
+        insights['next_service'] = {
+            'due_date': next_due_date,
+            'due_mileage': due_mileage,
+            'overdue': overdue,
+            'basis_date': last_service.date,
+        }
+
+    # --- NCT due estimate, using standard Irish NCT rules (4yo first test, then
+    # biennial until 10yo, then annual). No registration-date data available, so
+    # anything derived without a real NCT event on file is flagged as an estimate. ---
+    nct_events = sorted((e for e in car.service_events if e.event_type == 'NCT'), key=lambda e: e.date)
+    if nct_events:
+        last_nct = nct_events[-1]
+        if last_nct.nct_result == 'Fail':
+            insights['nct'] = {'status': 'retest_required', 'basis_date': last_nct.date}
+        elif last_nct.nct_next_due:
+            insights['nct'] = {
+                'status': 'scheduled',
+                'due_date': last_nct.nct_next_due,
+                'overdue': last_nct.nct_next_due < today,
+                'basis_date': last_nct.date,
+                'manual': True,
+            }
+        else:
+            age_at_test = (last_nct.date - _date(car.year, 7, 1)).days / 365.25 if car.year else None
+            interval_years = 1 if (age_at_test is not None and age_at_test >= 10) else 2
+            next_due_date = add_months(last_nct.date, interval_years * 12)
+            insights['nct'] = {
+                'status': 'scheduled',
+                'due_date': next_due_date,
+                'overdue': next_due_date < today,
+                'basis_date': last_nct.date,
+            }
+    elif car.year:
+        age = today.year - car.year
+        if age < 4:
+            first_due = _date(car.year + 4, 7, 1)
+            insights['nct'] = {'status': 'first_due', 'due_date': first_due, 'overdue': first_due < today, 'estimated': True}
+        else:
+            insights['nct'] = {'status': 'overdue_unknown', 'estimated': True}
+
+    # --- Running costs ---
+    total_spend = car.total_service_spend
+    baseline_mileage = car.purchase_mileage if car.purchase_mileage is not None else (anchors[0][1] if anchors else None)
+    if baseline_mileage is not None and latest_mileage is not None and latest_mileage > baseline_mileage:
+        insights['cost_per_km'] = round(total_spend / (latest_mileage - baseline_mileage), 3)
+    if car.event_count:
+        insights['avg_cost_per_event'] = round(total_spend / car.event_count, 2)
+
+    return insights
+
 
 IRISH_COUNTY_CODES = {
     'C': 'Cork', 'CE': 'Clare', 'CN': 'Cavan', 'CW': 'Carlow',

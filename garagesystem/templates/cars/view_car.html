@@ -176,8 +176,95 @@
         </div>
     </div>
 
-    <!-- Right column: Service events -->
+    <!-- Right column: Insights + Service events -->
     <div class="col-md-8">
+        {# ---------- Insights ---------- #}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bi bi-lightbulb me-2"></i>Insights</h6>
+            </div>
+            <div class="card-body">
+                <div class="row g-4">
+                    <!-- Annual Mileage -->
+                    <div class="col-6 col-lg-3">
+                        <div class="small text-muted mb-1">Annual Mileage</div>
+                        {% if insights.annual_mileage %}
+                        <div class="fs-5 fw-bold">{{ '{:,}'.format(insights.annual_mileage) }} <span class="fs-6 fw-normal text-muted">km/yr</span></div>
+                        {% else %}
+                        <div class="fs-5 fw-bold text-muted">—</div>
+                        <div class="small text-muted">Log mileage over time to estimate</div>
+                        {% endif %}
+                        {% if insights.last_12_months_mileage is not none %}
+                        <div class="small text-muted">{{ '{:,}'.format(insights.last_12_months_mileage) }} km last 12 months</div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Next Service Due -->
+                    <div class="col-6 col-lg-3">
+                        <div class="small text-muted mb-1">Next Service Due</div>
+                        {% if insights.next_service %}
+                            {% set ns = insights.next_service %}
+                            <div class="fs-5 fw-bold {{ 'text-danger' if ns.overdue else '' }}">
+                                {% if ns.due_date %}{{ ns.due_date.strftime('%d/%m/%Y') }}{% else %}—{% endif %}
+                                {% if ns.overdue %}<span class="badge bg-danger ms-1">Overdue</span>{% endif %}
+                            </div>
+                            <div class="small text-muted">
+                                {% if ns.due_mileage %}
+                                    at {{ '{:,}'.format(ns.due_mileage) }} km
+                                {% elif not ns.due_date %}
+                                    Set a service interval to estimate
+                                {% endif %}
+                            </div>
+                        {% else %}
+                        <div class="fs-5 fw-bold text-muted">—</div>
+                        <div class="small text-muted">Log a Service event to estimate</div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Next NCT Due -->
+                    <div class="col-6 col-lg-3">
+                        <div class="small text-muted mb-1">Next NCT Due</div>
+                        {% if insights.nct %}
+                            {% set nct = insights.nct %}
+                            {% if nct.status == 'retest_required' %}
+                                <div class="fs-5 fw-bold text-danger">Retest Required</div>
+                                <div class="small text-muted">Failed {{ nct.basis_date.strftime('%d/%m/%Y') }}</div>
+                            {% elif nct.status == 'overdue_unknown' %}
+                                <div class="fs-5 fw-bold text-danger">Likely Overdue</div>
+                                <div class="small text-muted">No NCT on record (estimated)</div>
+                            {% else %}
+                                <div class="fs-5 fw-bold {{ 'text-danger' if nct.overdue else '' }}">
+                                    {{ nct.due_date.strftime('%d/%m/%Y') }}
+                                    {% if nct.overdue %}<span class="badge bg-danger ms-1">Overdue</span>{% endif %}
+                                </div>
+                                <div class="small text-muted">
+                                    {% if nct.status == 'first_due' %}First test due (estimated){% elif nct.manual %}Last Test: {{ nct.basis_date.strftime('%d/%m/%Y') }}{% else %}Based on {{ nct.basis_date.strftime('%d/%m/%Y') }}{% endif %}
+                                </div>
+                            {% endif %}
+                        {% else %}
+                        <div class="fs-5 fw-bold text-muted">—</div>
+                        <div class="small text-muted">Add the car's year or an NCT event</div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Running Costs -->
+                    <div class="col-6 col-lg-3">
+                        <div class="small text-muted mb-1">Running Cost</div>
+                        {% if insights.cost_per_km %}
+                        <div class="fs-5 fw-bold">€{{ '%.3f'|format(insights.cost_per_km) }} <span class="fs-6 fw-normal text-muted">/km</span></div>
+                        {% else %}
+                        <div class="fs-5 fw-bold text-muted">—</div>
+                        {% endif %}
+                        {% if insights.avg_cost_per_event %}
+                        <div class="small text-muted">€{{ '%.2f'|format(insights.avg_cost_per_event) }} avg/event</div>
+                        {% elif not insights.cost_per_km %}
+                        <div class="small text-muted">Not enough data yet</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h5 class="section-heading mb-0"><i class="bi bi-clipboard-check me-2"></i>Service History</h5>
             <a href="{{ url_for('events.add_event', car_id=car.id) }}" class="btn btn-primary btn-sm">

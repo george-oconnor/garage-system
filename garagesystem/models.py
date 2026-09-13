@@ -52,6 +52,10 @@ class Car(db.Model):
     purchase_date = db.Column(db.Date, nullable=True)
     purchase_price = db.Column(db.Float, nullable=True)
     purchase_mileage = db.Column(db.Integer, nullable=True)
+    # Assumed service schedule, used to project the next service due date/mileage
+    # on the Insights panel. Defaults to a common manufacturer-agnostic interval.
+    service_interval_km = db.Column(db.Integer, nullable=True, default=10000, server_default='10000')
+    service_interval_months = db.Column(db.Integer, nullable=True, default=12, server_default='12')
     notes = db.Column(db.Text, nullable=True)
     lookup_data = db.Column(db.Text, nullable=True)      # raw JSON from vehicle lookup API
     image_url = db.Column(db.Text, nullable=True)        # thumbnail URL from Wikimedia Commons
@@ -107,6 +111,10 @@ class MileageLog(db.Model):
         db.ForeignKey('service_event.id', ondelete='SET NULL'),
         nullable=True,
     )
+    # Marks the single auto-created log representing the car's purchase_mileage/
+    # purchase_date, so it can be kept in sync the same way source_event_id keeps
+    # an event's mileage log in sync.
+    is_purchase_mileage = db.Column(db.Boolean, nullable=False, default=False, server_default='0')
     date_added = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 
     def __repr__(self):

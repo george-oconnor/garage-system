@@ -8,10 +8,49 @@ from garagesystem.models import Car, MileageLog
 from garagesystem.cars.forms import PlateSearchForm, AddCarForm, EditCarForm, AddMileageForm
 from garagesystem.cars.utils import (
     parse_irish_plate, lookup_vehicle_api, normalize_fuel_type, normalize_transmission,
-    fetch_car_image, convert_mileage_to_km, estimate_mileage_at_date,
+    fetch_car_image, convert_mileage_to_km, estimate_mileage_at_date, compute_car_insights,
 )
 
 cars = Blueprint('cars', __name__)
+
+
+def _sync_purchase_mileage_log(car):
+    """Keep the auto-created 'Mileage at purchase' MileageLog in sync with the
+    car's purchase_date/purchase_mileage, mirroring how a service event's
+    mileage log stays in sync via source_event_id (see events._sync_mileage_log).
+    """
+    linked = MileageLog.query.filter_by(car_id=car.id, is_purchase_mileage=True).first()
+
+    if car.purchase_date is None or car.purchase_mileage is None:
+        if linked:
+            db.session.delete(linked)
+        return
+
+    if linked:
+        linked.date = car.purchase_date
+        linked.mileage = car.purchase_mileage
+        return
+
+    # Adopt a matching unlinked log rather than creating a duplicate entry.
+    existing = MileageLog.query.filter_by(
+        car_id=car.id,
+        date=car.purchase_date,
+        mileage=car.purchase_mileage,
+        source_event_id=None,
+        is_purchase_mileage=False,
+    ).first()
+    if existing:
+        existing.is_purchase_mileage = True
+        existing.notes = 'Mileage at purchase'
+        return
+
+    db.session.add(MileageLog(
+        car_id=car.id,
+        mileage=car.purchase_mileage,
+        date=car.purchase_date,
+        notes='Mileage at purchase',
+        is_purchase_mileage=True,
+    ))
 
 
 @cars.route('/cars')
@@ -102,14 +141,7 @@ def add_car_details():
         )
         db.session.add(car)
         db.session.flush()  # assign car.id before creating related rows
-        # Seed a mileage log from purchase details if both provided
-        if car.purchase_date and car.purchase_mileage is not None:
-            db.session.add(MileageLog(
-                car_id=car.id,
-                mileage=car.purchase_mileage,
-                date=car.purchase_date,
-                notes='Mileage at purchase',
-            ))
+        _sync_purchase_mileage_log(car)
         db.session.commit()
         session.pop('new_car_prefill', None)
         flash(f'{car.registration} added successfully.', 'success')
@@ -138,7 +170,7 @@ def view_car(car_id):
 
     return render_template(
         'cars/view_car.html', title=str(car), car=car, mileage_form=mileage_form,
-        event_mileages=event_mileages,
+        event_mileages=event_mileages, insights=compute_car_insights(car),
     )
 
 
@@ -172,7 +204,10 @@ def edit_car(car_id):
             car.purchase_date = form.purchase_date.data
             car.purchase_price = form.purchase_price.data
             car.purchase_mileage = convert_mileage_to_km(form.purchase_mileage.data, form.purchase_mileage_unit.data)
+            car.service_interval_km = form.service_interval_km.data
+            car.service_interval_months = form.service_interval_months.data
             car.notes = form.notes.data or None
+            _sync_purchase_mileage_log(car)
             # Handle custom image upload
             upload = form.image.data
             if upload and upload.filename:
