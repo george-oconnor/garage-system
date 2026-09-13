@@ -435,6 +435,11 @@
     var eventPoints = {{ event_points | tojson }};
     var purchasePoint = {{ purchase_point | tojson }};
 
+    // Narrow screens need the y-axis tick labels shortened to free up plot width.
+    var isNarrow = window.matchMedia('(max-width: 576px)').matches;
+    // Devices that can't hover (touch) should tap to open the popover, not navigate away.
+    var noHover = window.matchMedia('(hover: none)').matches;
+
     var datasets = [];
     if (mileagePoints.length) {
         datasets.push({
@@ -471,16 +476,6 @@
             order: 1,
         });
     }
-    // Opaque tint (not alpha transparency) so estimated markers still look muted
-    // without letting whatever's underneath (e.g. the trend line) show through.
-    function tintWithWhite(hex, ratio) {
-        var m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-        if (!m) return hex;
-        var r = parseInt(m[1], 16), g = parseInt(m[2], 16), b = parseInt(m[3], 16);
-        var mix = function (c) { return Math.round(c * (1 - ratio) + 255 * ratio); };
-        return 'rgb(' + mix(r) + ',' + mix(g) + ',' + mix(b) + ')';
-    }
-
     if (eventPoints.length) {
         datasets.push({
             type: 'scatter',
@@ -495,9 +490,7 @@
                 return p.estimated ? [3, 2] : [];
             },
             borderColor: '#000',
-            backgroundColor: eventPoints.map(function (p) {
-                return p.estimated ? tintWithWhite(p.color, 0.55) : p.color;
-            }),
+            backgroundColor: eventPoints.map(function (p) { return p.color; }),
             order: 1,
         });
     }
@@ -512,6 +505,7 @@
                 if (!elements || !elements.length) return;
                 var el = elements[0];
                 var ds = this.data.datasets[el.datasetIndex];
+                if (noHover) return;
                 if (ds && ds.label === 'Service Events') {
                     var point = ds.data[el.index];
                     if (point && point.url) window.location.href = point.url;
@@ -525,9 +519,13 @@
                 },
                 y: {
                     beginAtZero: false,
-                    title: { display: true, text: 'km' },
+                    title: { display: true, text: isNarrow ? '1000 km' : 'km' },
                     ticks: {
-                        callback: function (v) { return Number(v).toLocaleString(); }
+                        callback: function (v) {
+                            return isNarrow
+                                ? Number(v / 1000).toLocaleString(undefined, { maximumFractionDigits: 1 })
+                                : Number(v).toLocaleString();
+                        }
                     }
                 }
             },
