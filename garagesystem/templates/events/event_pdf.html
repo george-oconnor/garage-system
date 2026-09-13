@@ -241,11 +241,12 @@
     <table class="items-table">
         <thead>
             <tr>
-                <th style="width:42%">Description</th>
-                <th style="width:12%">Type</th>
-                <th style="width:16%">Part No.</th>
-                <th style="width:8%" class="text-right">Qty</th>
-                <th style="width:11%" class="text-right">Unit Cost</th>
+                <th style="width:36%">Description</th>
+                <th style="width:11%">Type</th>
+                <th style="width:14%">Part No.</th>
+                <th style="width:7%" class="text-right">Qty</th>
+                <th style="width:10%" class="text-right">Unit Cost</th>
+                <th style="width:11%" class="text-right">Shipping</th>
                 <th style="width:11%" class="text-right">Total</th>
             </tr>
         </thead>
@@ -257,6 +258,7 @@
                 <td><small>{{ item.part_number or '—' }}</small></td>
                 <td class="text-right">{{ '%g'|format(item.quantity) }}</td>
                 <td class="text-right">€{{ '%.2f'|format(item.unit_cost) }}</td>
+                <td class="text-right">{% if item.shipping_cost %}€{{ '%.2f'|format(item.shipping_cost) }}{% else %}—{% endif %}</td>
                 <td class="text-right">€{{ '%.2f'|format(item.total) }}</td>
             </tr>
             {% endfor %}
@@ -273,6 +275,12 @@
         <tr class="subtotal-row">
             <td width="85%" class="text-right">Parts &amp; Consumables:</td>
             <td width="15%" class="text-right">€{{ '%.2f'|format(event.parts_cost) }}</td>
+        </tr>
+        {% endif %}
+        {% if event.shipping_cost > 0 %}
+        <tr class="subtotal-row">
+            <td width="85%" class="text-right">Shipping:</td>
+            <td width="15%" class="text-right">€{{ '%.2f'|format(event.shipping_cost) }}</td>
         </tr>
         {% endif %}
         <tr class="total-row">

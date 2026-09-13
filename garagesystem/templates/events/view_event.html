@@ -7,7 +7,7 @@
     'Inspection': 'info text-dark', 'Modification': 'dark', 'Purchase': 'success', 'Other': 'secondary'
 } %}
 {% set item_type_badges = {
-    'Parts': 'primary', 'Labour': 'success', 'Fluid': 'info text-dark',
+    'Parts': 'primary', 'Labour': 'success',
     'Consumables': 'warning text-dark', 'Other': 'secondary'
 } %}
 
@@ -191,7 +191,13 @@
                     <span>€{{ '%.2f'|format(event.parts_cost) }}</span>
                 </div>
                 {% endif %}
-                {% set other_cost = event.total_cost - event.labour_cost - event.parts_cost %}
+                {% if event.shipping_cost > 0 %}
+                <div class="d-flex justify-content-between mb-1">
+                    <span class="text-muted">Shipping</span>
+                    <span>€{{ '%.2f'|format(event.shipping_cost) }}</span>
+                </div>
+                {% endif %}
+                {% set other_cost = event.total_cost - event.labour_cost - event.parts_cost - event.shipping_cost %}
                 {% if other_cost > 0 %}
                 <div class="d-flex justify-content-between mb-1">
                     <span class="text-muted">Other</span>
@@ -270,6 +276,7 @@
                             <th>Part No.</th>
                             <th class="text-end">Qty</th>
                             <th class="text-end">Unit</th>
+                            <th class="text-end">Shipping</th>
                             <th class="text-end">Total</th>
                             <th></th>
                         </tr>
@@ -286,6 +293,9 @@
                             <td><small class="text-muted font-monospace">{{ item.part_number or '—' }}</small></td>
                             <td class="text-end">{{ '%g'|format(item.quantity) }}</td>
                             <td class="text-end">€{{ '%.2f'|format(item.unit_cost) }}</td>
+                            <td class="text-end">
+                                {% if item.shipping_cost %}€{{ '%.2f'|format(item.shipping_cost) }}{% else %}<span class="text-muted">—</span>{% endif %}
+                            </td>
                             <td class="text-end"><strong>€{{ '%.2f'|format(item.total) }}</strong></td>
                             <td>
                                 <form method="POST"
@@ -303,7 +313,7 @@
                     </tbody>
                     <tfoot class="table-light">
                         <tr>
-                            <td colspan="5" class="text-end fw-bold">Grand Total</td>
+                            <td colspan="6" class="text-end fw-bold">Grand Total</td>
                             <td class="text-end fw-bold text-success">€{{ '%.2f'|format(event.total_cost) }}</td>
                             <td></td>
                         </tr>
@@ -326,8 +336,8 @@
             <div class="card-body">
                 <form method="POST" action="{{ url_for('events.add_line_item', event_id=event.id) }}">
                     {{ form.hidden_tag() }}
-                    <div class="row g-2 align-items-end">
-                        <div class="col-12 col-md-3">
+                    <div class="row g-2 align-items-end mb-2">
+                        <div class="col-12 col-md-5">
                             {{ form.description.label(class="form-label form-label-sm mb-1") }}
                             {{ form.description(class="form-control form-control-sm" + (" is-invalid" if form.description.errors else ""),
                                placeholder="e.g. Castrol Edge 5W-30 1L") }}
@@ -335,7 +345,7 @@
                                 <div class="invalid-feedback">{{ error }}</div>
                             {% endfor %}
                         </div>
-                        <div class="col-6 col-md-2">
+                        <div class="col-6 col-md-3">
                             {{ form.item_type.label(class="form-label form-label-sm mb-1") }}
                             {{ form.item_type(class="form-select form-select-sm") }}
                         </div>
@@ -343,12 +353,14 @@
                             {{ form.part_number.label(class="form-label form-label-sm mb-1") }}
                             {{ form.part_number(class="form-control form-control-sm", placeholder="Optional") }}
                         </div>
-                        <div class="col-4 col-md-1">
+                        <div class="col-6 col-md-2">
                             {{ form.quantity.label(class="form-label form-label-sm mb-1") }}
                             {{ form.quantity(class="form-control form-control-sm" + (" is-invalid" if form.quantity.errors else ""),
                                step="0.01", min="0.001", value="1") }}
                         </div>
-                        <div class="col-8 col-md-2">
+                    </div>
+                    <div class="row g-2 align-items-end">
+                        <div class="col-6 col-md-4">
                             {{ form.unit_cost.label(class="form-label form-label-sm mb-1") }}
                             <div class="input-group input-group-sm">
                                 <span class="input-group-text">€</span>
@@ -356,7 +368,15 @@
                                    step="0.01", min="0", value="0.00") }}
                             </div>
                         </div>
-                        <div class="col-12 col-md-2">
+                        <div class="col-6 col-md-4">
+                            {{ form.shipping_cost.label(class="form-label form-label-sm mb-1") }}
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text">€</span>
+                                {{ form.shipping_cost(class="form-control form-control-sm" + (" is-invalid" if form.shipping_cost.errors else ""),
+                                   step="0.01", min="0", value="0.00", placeholder="Optional") }}
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-4">
                             <label class="form-label form-label-sm mb-1 d-none d-md-block">&nbsp;</label>
                             {{ form.submit(class="btn btn-primary btn-sm w-100") }}
                         </div>

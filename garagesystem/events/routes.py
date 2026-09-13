@@ -288,6 +288,7 @@ def add_line_item(event_id):
             part_number=form.part_number.data.strip() if form.part_number.data else None,
             quantity=form.quantity.data,
             unit_cost=form.unit_cost.data,
+            shipping_cost=form.shipping_cost.data or 0,
         )
         db.session.add(item)
         db.session.commit()

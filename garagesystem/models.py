@@ -154,11 +154,18 @@ class ServiceEvent(db.Model):
 
     @property
     def labour_cost(self):
-        return round(sum(item.total for item in self.line_items if item.item_type == 'Labour'), 2)
+        # Excludes shipping, which is broken out separately via shipping_cost.
+        return round(sum(item.quantity * item.unit_cost for item in self.line_items if item.item_type == 'Labour'), 2)
 
     @property
     def parts_cost(self):
-        return round(sum(item.total for item in self.line_items if item.item_type in ('Parts', 'Fluid', 'Consumables')), 2)
+        # Excludes shipping, which is broken out separately via shipping_cost.
+        return round(sum(item.quantity * item.unit_cost for item in self.line_items
+                         if item.item_type in ('Parts', 'Consumables')), 2)
+
+    @property
+    def shipping_cost(self):
+        return round(sum(item.shipping_cost for item in self.line_items), 2)
 
     def __repr__(self):
         return f'ServiceEvent({self.title} on {self.date})'
@@ -172,11 +179,12 @@ class EventLineItem(db.Model):
     part_number = db.Column(db.String(100), nullable=True)
     quantity = db.Column(db.Float, nullable=False, default=1.0)
     unit_cost = db.Column(db.Float, nullable=False, default=0.0)
+    shipping_cost = db.Column(db.Float, nullable=False, default=0.0, server_default='0')
     date_added = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 
     @property
     def total(self):
-        return round(self.quantity * self.unit_cost, 2)
+        return round(self.quantity * self.unit_cost + self.shipping_cost, 2)
 
     def __repr__(self):
         return f'LineItem({self.description} x{self.quantity})'

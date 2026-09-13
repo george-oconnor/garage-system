@@ -23,7 +23,6 @@ EVENT_TYPES = [
 ITEM_TYPES = [
     ('Parts', 'Parts'),
     ('Labour', 'Labour'),
-    ('Fluid', 'Fluid'),
     ('Consumables', 'Consumables'),
     ('Other', 'Other'),
 ]
@@ -101,4 +100,5 @@ class AddLineItemForm(FlaskForm):
     part_number = StringField('Part No.', validators=[Optional(), Length(max=100)])
     quantity = FloatField('Qty', validators=[DataRequired(), NumberRange(min=0.001)])
     unit_cost = FloatField('Unit Cost (€)', validators=[DataRequired(), NumberRange(min=0)])
+    shipping_cost = FloatField('Shipping (€)', validators=[Optional(), NumberRange(min=0)])
     submit = SubmitField('Add Item')
