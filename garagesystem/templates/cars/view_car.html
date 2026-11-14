@@ -232,6 +232,9 @@
                             {% elif nct.status == 'overdue_unknown' %}
                                 <div class="fs-5 fw-bold text-danger">Likely Overdue</div>
                                 <div class="small text-muted">No NCT on record (estimated)</div>
+                            {% elif nct.status == 'booked' %}
+                                <div class="fs-5 fw-bold">{{ nct.due_date.strftime('%d/%m/%Y') }}</div>
+                                <div class="small text-muted">Test booked</div>
                             {% else %}
                                 <div class="fs-5 fw-bold {{ 'text-danger' if nct.overdue else '' }}">
                                     {{ nct.due_date.strftime('%d/%m/%Y') }}
@@ -240,6 +243,9 @@
                                 <div class="small text-muted">
                                     {% if nct.status == 'first_due' %}First test due (estimated){% elif nct.manual %}Last Test: {{ nct.basis_date.strftime('%d/%m/%Y') }}{% else %}Based on {{ nct.basis_date.strftime('%d/%m/%Y') }}{% endif %}
                                 </div>
+                            {% endif %}
+                            {% if nct.booked_date and nct.status != 'booked' %}
+                                <div class="small text-muted"><i class="bi bi-calendar-check me-1"></i>Booked {{ nct.booked_date.strftime('%d/%m/%Y') }}</div>
                             {% endif %}
                         {% else %}
                         <div class="fs-5 fw-bold text-muted">—</div>

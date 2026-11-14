@@ -128,9 +128,13 @@ def compute_car_insights(car, today=None):
     # --- NCT due estimate, using standard Irish NCT rules (4yo first test, then
     # biennial until 10yo, then annual). No registration-date data available, so
     # anything derived without a real NCT event on file is flagged as an estimate. ---
+    # Only tests that have actually happened count towards the due date — a
+    # future-dated NCT event is a booked appointment, surfaced separately. ---
     nct_events = sorted((e for e in car.service_events if e.event_type == 'NCT'), key=lambda e: e.date)
-    if nct_events:
-        last_nct = nct_events[-1]
+    past_ncts = [e for e in nct_events if e.date <= today]
+    upcoming_ncts = [e for e in nct_events if e.date > today]
+    if past_ncts:
+        last_nct = past_ncts[-1]
         if last_nct.nct_result == 'Fail':
             insights['nct'] = {'status': 'retest_required', 'basis_date': last_nct.date}
         elif last_nct.nct_next_due:
@@ -158,6 +162,12 @@ def compute_car_insights(car, today=None):
             insights['nct'] = {'status': 'first_due', 'due_date': first_due, 'overdue': first_due < today, 'estimated': True}
         else:
             insights['nct'] = {'status': 'overdue_unknown', 'estimated': True}
+
+    if upcoming_ncts:
+        booked_date = upcoming_ncts[0].date
+        if insights['nct'] is None:
+            insights['nct'] = {'status': 'booked', 'due_date': booked_date, 'overdue': False}
+        insights['nct']['booked_date'] = booked_date
 
     # --- Running costs ---
     total_spend = car.total_service_spend
