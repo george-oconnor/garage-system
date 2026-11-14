@@ -209,12 +209,17 @@
                                 {% if ns.overdue %}<span class="badge bg-danger ms-1">Overdue</span>{% endif %}
                             </div>
                             <div class="small text-muted">
-                                {% if ns.due_mileage %}
+                                {% if ns.booked %}
+                                    Service booked
+                                {% elif ns.due_mileage %}
                                     at {{ '{:,}'.format(ns.due_mileage) }} km
                                 {% elif not ns.due_date %}
                                     Set a service interval to estimate
                                 {% endif %}
                             </div>
+                            {% if ns.booked_date and not ns.booked %}
+                                <div class="small text-muted"><i class="bi bi-calendar-check me-1"></i>Booked {{ ns.booked_date.strftime('%d/%m/%Y') }}</div>
+                            {% endif %}
                         {% else %}
                         <div class="fs-5 fw-bold text-muted">—</div>
                         <div class="small text-muted">Log a Service event to estimate</div>

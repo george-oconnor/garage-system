@@ -93,10 +93,14 @@ def compute_car_insights(car, today=None):
     if latest_mileage is None:
         latest_mileage = car.latest_mileage
 
-    # --- Next service due: last 'Service' event + the car's service interval ---
+    # --- Next service due: last 'Service' event + the car's service interval.
+    # Only services that have actually happened count — a future-dated Service
+    # event is a booked appointment, surfaced separately. ---
     service_events = sorted((e for e in car.service_events if e.event_type == 'Service'), key=lambda e: e.date)
-    if service_events:
-        last_service = service_events[-1]
+    past_services = [e for e in service_events if e.date <= today]
+    upcoming_services = [e for e in service_events if e.date > today]
+    if past_services:
+        last_service = past_services[-1]
         baseline_mileage = last_service.mileage_at_event
         if baseline_mileage is None:
             baseline_mileage = estimate_mileage_at_date(anchors, last_service.date)
@@ -124,6 +128,12 @@ def compute_car_insights(car, today=None):
             'overdue': overdue,
             'basis_date': last_service.date,
         }
+
+    if upcoming_services:
+        booked_date = upcoming_services[0].date
+        if insights['next_service'] is None:
+            insights['next_service'] = {'due_date': booked_date, 'due_mileage': None, 'overdue': False, 'booked': True}
+        insights['next_service']['booked_date'] = booked_date
 
     # --- NCT due estimate, using standard Irish NCT rules (4yo first test, then
     # biennial until 10yo, then annual). No registration-date data available, so
