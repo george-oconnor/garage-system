@@ -65,25 +65,39 @@ def test_low_stock_card(db):
     assert card.car_id is None and card.title == 'Restock Oil filter'
 
 
-def test_drag_to_done_and_reorder(client, db):
+def test_tick_off_offers_to_log_and_can_be_undone(client, db):
     car = make_car()
-    a = Task(title='A', car_id=car.id, status='todo', position=1)
-    b = Task(title='B', car_id=car.id, status='doing', position=1)
-    db.session.add_all([a, b])
+    job = Task(title='Fix boot rattle', car_id=car.id, status='doing')
+    garage = Task(title='Buy axle stands', status='todo')
+    db.session.add_all([job, garage])
     db.session.commit()
 
-    r = client.post('/board/move', json={'id': a.id, 'status': 'doing', 'order': [a.id, b.id]})
-    assert r.get_json()['ok']
-    db.session.refresh(a); db.session.refresh(b)
-    assert (a.status, a.position, b.position) == ('doing', 1, 2)
+    r = client.post(f'/board/tasks/{job.id}/done')
+    assert r.status_code == 302 and r.headers['Location'].endswith(f'/board?done={job.id}')
+    db.session.refresh(job)
+    assert job.status == 'done' and job.completed_at is not None
+    page = client.get(f'/board?done={job.id}').get_data(as_text=True)
+    assert 'Log service event' in page and 'Done lately' in page
 
-    r = client.post('/board/move', json={'id': a.id, 'status': 'done', 'order': [a.id]})
-    data = r.get_json()
-    assert data['can_log'] and data['log_url'].endswith(f'/board/tasks/{a.id}/log')
-    db.session.refresh(a)
-    assert a.status == 'done' and a.completed_at is not None
+    # A garage job (no car) isn't offered for logging
+    client.post(f'/board/tasks/{garage.id}/done')
+    assert 'Log service event' not in client.get(f'/board?done={garage.id}').get_data(as_text=True)
 
-    assert client.post('/board/move', json={'id': a.id, 'status': 'nope'}).status_code == 400
+    client.post(f'/board/tasks/{job.id}/reopen')
+    db.session.refresh(job)
+    assert job.status == 'todo' and job.completed_at is None
+
+
+def test_list_puts_overdue_first(client, db):
+    car = make_car(year=TODAY.year)
+    db.session.add_all([
+        Task(title='Later job', car_id=car.id, due_date=TODAY + timedelta(days=90)),
+        Task(title='Overdue job', car_id=car.id, due_date=TODAY - timedelta(days=1)),
+        Task(title='No date job'),
+    ])
+    db.session.commit()
+    page = client.get('/board').get_data(as_text=True)
+    assert page.index('Overdue job') < page.index('Later job') < page.index('No date job')
 
 
 def test_logging_card_creates_event_with_parts_and_takes_stock(client, db):

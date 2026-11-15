@@ -35,19 +35,20 @@ database at `instance/garage.db` and a development secret key.
 
 ## Features beyond the basics
 
-- **Whiteboard** (`/board`): a drag-and-drop board of garage jobs (To do, Waiting on
-  parts, In progress, Done). Reminder cards are added automatically when the next
-  service, the NCT, motor tax, insurance or a maintenance schedule item is due
-  within 30 days or 1,000 km, or when shelf stock runs low (`garagesystem/board/utils.py`).
-  A finished card can be logged as a service event, prefilled from the card, with its
-  parts turned into line items.
-- **Maintenance schedule** (per car): items with their own km and/or month interval.
+- **Whiteboard** (`/board`): the garage's job list, written on a whiteboard. Tick a
+  job off, or open it for its details, parts and status. Overdue jobs are listed
+  first. Reminders are added automatically when the next service, the NCT, motor
+  tax, insurance or a maintenance schedule item is due within 30 days or 1,000 km,
+  or when shelf stock runs low (`garagesystem/board/utils.py`). A finished car job
+  can be logged as a service event, prefilled from the job, with its parts turned
+  into line items.
+- **Maintenance schedule** (per car, **Schedule** tab): items with their own km and/or month interval.
   Tick an item on an event to reset it.
 - **Motor tax and insurance renewals**: Tax and Insurance events have a "valid until"
   date, shown on the car's Insights panel.
-- **Fuel log** (per car): fill-ups give L/100km (full tank to full tank) and fuel's
+- **Fuel log** (per car, **Fuel** tab, or **Log fill-up** at the top of the car page): fill-ups give L/100km (full tank to full tank) and fuel's
   share of the running cost per km. Odometer readings also go into the mileage log.
-- **Full history PDF** (car page, **History PDF**): every event, NCT record,
+- **Full history PDF** (car page, **⋯ → History PDF**): every event, NCT record,
   schedule and mileage history, with the uploaded NCT certificates (and optionally
   invoices) appended.
 - **Shelf** (`/shelf`): parts and consumables in stock. Pick one when adding a line

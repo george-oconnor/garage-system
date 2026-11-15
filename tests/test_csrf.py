@@ -45,20 +45,19 @@ def test_offsite_referrer_is_not_followed(csrf_client, db):
     assert r.status_code == 302 and 'evil.example' not in r.headers['Location']
 
 
-def test_board_drag_needs_header_token(csrf_client, db):
+def test_header_token_is_accepted(csrf_client, db):
+    """fetch()-style requests can send the token as an X-CSRFToken header."""
     task = Task(title='A', status='todo')
     db.session.add(task)
     db.session.commit()
-    body = {'id': task.id, 'status': 'doing', 'order': [task.id]}
 
-    r = csrf_client.post('/board/move', json=body, base_url=HTTPS, headers=SAME_SITE)
-    assert r.status_code == 400 and r.get_json()['ok'] is False
+    r = csrf_client.post(f'/board/tasks/{task.id}/done', base_url=HTTPS, headers=SAME_SITE)
     assert db.session.get(Task, task.id).status == 'todo'
 
     token = _token(csrf_client, '/board')
-    r = csrf_client.post('/board/move', json=body, base_url=HTTPS, headers={**SAME_SITE, 'X-CSRFToken': token})
-    assert r.get_json()['ok']
-    assert db.session.get(Task, task.id).status == 'doing'
+    csrf_client.post(f'/board/tasks/{task.id}/done', base_url=HTTPS,
+                     headers={**SAME_SITE, 'X-CSRFToken': token})
+    assert db.session.get(Task, task.id).status == 'done'
 
 
 def test_token_from_another_site_is_refused(csrf_client, db):

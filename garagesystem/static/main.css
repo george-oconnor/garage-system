@@ -2,8 +2,236 @@
    Garage System — main.css
    ========================================================= */
 
+/* ── georgeoc colour system ──────────────────────────────
+   The same palette as georgeoc.com: navy for the chrome,
+   sky blue as the accent. */
+:root {
+    --gs-navy: #002041;
+    --gs-navy-2: #0a2f57;
+    --gs-sky: #1c91d4;
+    --gs-sky-dark: #157ab5;
+    --gs-sky-rgb: 28, 145, 212;
+
+    /* Bootstrap's primary becomes the sky accent */
+    --bs-primary: var(--gs-sky);
+    --bs-primary-rgb: var(--gs-sky-rgb);
+    --bs-link-color: var(--gs-sky-dark);
+    --bs-link-color-rgb: 21, 122, 181;
+    --bs-link-hover-color: var(--gs-navy);
+    --bs-link-hover-color-rgb: 0, 32, 65;
+    --bs-primary-text-emphasis: var(--gs-sky-dark);
+    --bs-primary-bg-subtle: #e3f2fb;
+    --bs-primary-border-subtle: #a9d6f0;
+    --bs-focus-ring-color: rgba(var(--gs-sky-rgb), 0.3);
+}
+
+.btn-primary {
+    --bs-btn-bg: var(--gs-sky);
+    --bs-btn-border-color: var(--gs-sky);
+    --bs-btn-hover-bg: var(--gs-sky-dark);
+    --bs-btn-hover-border-color: var(--gs-sky-dark);
+    --bs-btn-active-bg: var(--gs-sky-dark);
+    --bs-btn-active-border-color: var(--gs-sky-dark);
+    --bs-btn-disabled-bg: var(--gs-sky);
+    --bs-btn-disabled-border-color: var(--gs-sky);
+    --bs-btn-focus-shadow-rgb: var(--gs-sky-rgb);
+}
+.btn-outline-primary {
+    --bs-btn-color: var(--gs-sky-dark);
+    --bs-btn-border-color: var(--gs-sky);
+    --bs-btn-hover-bg: var(--gs-sky);
+    --bs-btn-hover-border-color: var(--gs-sky);
+    --bs-btn-active-bg: var(--gs-sky-dark);
+    --bs-btn-active-border-color: var(--gs-sky-dark);
+    --bs-btn-focus-shadow-rgb: var(--gs-sky-rgb);
+}
+.form-control:focus, .form-select:focus, .form-check-input:focus {
+    border-color: #8ccbee;
+    box-shadow: 0 0 0 0.25rem rgba(var(--gs-sky-rgb), 0.25);
+}
+.form-check-input:checked { background-color: var(--gs-sky); border-color: var(--gs-sky); }
+.dropdown-item.active, .dropdown-item:active { background-color: var(--gs-sky); }
+.table-dark {
+    --bs-table-bg: var(--gs-navy);
+    --bs-table-border-color: var(--gs-navy-2);
+}
+
+/* ── Navbar ────────────────────────────────────────────── */
+.gs-navbar {
+    background: var(--gs-navy);
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06), 0 4px 18px rgba(0, 20, 45, 0.25);
+    padding-top: 0.6rem;
+    padding-bottom: 0.6rem;
+}
+.gs-navbar .navbar-brand {
+    font-weight: 700;
+    font-size: 1.15rem;
+    letter-spacing: 0.2px;
+    color: #fff;
+    gap: 0.6rem;
+}
+.gs-brand-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    background: #fff;
+    color: var(--gs-navy);
+    font-size: 1.15rem;
+}
+.gs-navbar .nav-link {
+    color: rgba(255, 255, 255, 0.78);
+    font-weight: 500;
+    border-radius: 8px;
+    padding: 0.45rem 0.85rem !important;
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+.gs-navbar .nav-link .bi { margin-right: 0.3rem; }
+.gs-navbar .nav-link:hover,
+.gs-navbar .nav-link:focus-visible {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.08);
+}
+.gs-navbar .nav-link.active {
+    color: #fff;
+    background: rgba(var(--gs-sky-rgb), 0.22);
+    box-shadow: inset 0 -2px 0 var(--gs-sky);
+}
+@media (min-width: 992px) {
+    .gs-navbar .navbar-nav { gap: 0.25rem; }
+}
+
+.gs-user {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: rgba(255, 255, 255, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 999px;
+    padding: 0.2rem 0.75rem 0.2rem 0.25rem;
+}
+.gs-user:hover, .gs-user:focus-visible, .gs-user.show {
+    color: #fff;
+    border-color: rgba(255, 255, 255, 0.35);
+    background: rgba(255, 255, 255, 0.06);
+}
+.gs-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: var(--gs-sky);
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.8rem;
+}
+
+/* Morphing burger -> X (as on georgeoc.com) */
+.custom-toggler {
+    border: none;
+    padding: 0.5rem;
+    box-shadow: none !important;
+}
+.custom-toggler:focus-visible {
+    outline: 2px solid var(--gs-sky);
+    outline-offset: 2px;
+    border-radius: 6px;
+}
+.toggler-box { display: block; width: 26px; height: 18px; position: relative; }
+.toggler-bar {
+    display: block;
+    position: absolute;
+    left: 0;
+    width: 100%;
+    height: 2.5px;
+    border-radius: 2px;
+    background: #fff;
+    transition: transform 0.35s cubic-bezier(0.68, -0.3, 0.32, 1.3),
+                opacity 0.2s ease,
+                top 0.35s cubic-bezier(0.68, -0.3, 0.32, 1.3);
+}
+.toggler-bar:nth-child(1) { top: 0; }
+.toggler-bar:nth-child(2) { top: 8px; }
+.toggler-bar:nth-child(3) { top: 16px; }
+.custom-toggler[aria-expanded="true"] .toggler-bar:nth-child(1) { top: 8px; transform: rotate(45deg); }
+.custom-toggler[aria-expanded="true"] .toggler-bar:nth-child(2) { opacity: 0; transform: scaleX(0.2); }
+.custom-toggler[aria-expanded="true"] .toggler-bar:nth-child(3) { top: 8px; transform: rotate(-45deg); }
+
+/* Mobile: full-screen menu */
+@media (max-width: 991.98px) {
+    .gs-navbar .navbar-brand, .custom-toggler { position: relative; z-index: 1040; }
+
+    #navbarNav.navbar-collapse {
+        display: flex !important;
+        position: fixed;
+        inset: 0;
+        height: 100vh;
+        height: 100dvh;
+        z-index: 1035;
+        flex-direction: column;
+        justify-content: center;
+        padding: 4.5rem 1.5rem 3rem;
+        background: var(--gs-navy);
+        opacity: 0;
+        visibility: hidden;
+        transform: translateY(-10px);
+        transition: opacity 0.32s ease, transform 0.32s ease, visibility 0.32s;
+        overflow-y: auto;
+    }
+    #navbarNav.navbar-collapse.collapsing {
+        height: 100vh !important;
+        height: 100dvh !important;
+        transition: opacity 0.32s ease, transform 0.32s ease, visibility 0.32s;
+    }
+    body.nav-open #navbarNav.navbar-collapse {
+        opacity: 1;
+        visibility: visible;
+        transform: translateY(0);
+    }
+    #navbarNav .navbar-nav { width: 100%; align-items: center; gap: 0.35rem; }
+    #navbarNav .nav-item {
+        width: 100%;
+        max-width: 340px;
+        text-align: center;
+        opacity: 0;
+        transform: translateY(12px);
+    }
+    body.nav-open #navbarNav .nav-item { animation: gsNavItemIn 0.45s ease forwards; }
+    body.nav-open #navbarNav .nav-item:nth-child(1) { animation-delay: 0.10s; }
+    body.nav-open #navbarNav .nav-item:nth-child(2) { animation-delay: 0.16s; }
+    body.nav-open #navbarNav .nav-item:nth-child(3) { animation-delay: 0.22s; }
+    body.nav-open #navbarNav .nav-item:nth-child(4) { animation-delay: 0.28s; }
+    body.nav-open #navbarNav .nav-item:nth-child(5) { animation-delay: 0.34s; }
+    body.nav-open #navbarNav .nav-item:nth-child(6) { animation-delay: 0.40s; }
+    #navbarNav .nav-link {
+        font-size: 1.4rem;
+        font-weight: 600;
+        padding: 0.75rem 1rem !important;
+        color: rgba(255, 255, 255, 0.9);
+        box-shadow: none;
+    }
+    #navbarNav .nav-link.active { background: rgba(var(--gs-sky-rgb), 0.16); }
+    body.nav-open { overflow: hidden; }
+}
+@keyframes gsNavItemIn { to { opacity: 1; transform: translateY(0); } }
+
+@media (prefers-reduced-motion: reduce) {
+    .toggler-bar { transition: none; }
+    #navbarNav.navbar-collapse { transition: opacity 0.15s ease, visibility 0.15s; }
+    #navbarNav .nav-item { opacity: 1; transform: none; }
+    body.nav-open #navbarNav .nav-item { animation: none; }
+}
+
+.gs-footer {
+    background: var(--gs-navy);
+    color: rgba(255, 255, 255, 0.6);
+}
+
 body {
-    padding-top: 70px;
     padding-bottom: 40px;
     background-color: #f4f6f9;
     min-height: 100vh;
@@ -75,7 +303,7 @@ footer {
 .stat-card:hover {
     box-shadow: 0 4px 12px rgba(0,0,0,0.1);
 }
-.stat-card.primary  { border-left-color: #0d6efd; }
+.stat-card.primary  { border-left-color: var(--gs-sky); }
 .stat-card.success  { border-left-color: #198754; }
 .stat-card.warning  { border-left-color: #ffc107; }
 .stat-card.danger   { border-left-color: #dc3545; }
@@ -95,7 +323,7 @@ footer {
     transition: border-color 0.1s ease;
 }
 .event-card:hover {
-    border-color: #0d6efd;
+    border-color: var(--gs-sky);
 }
 
 /* ── Section heading ─────────────────────────────────────── */
@@ -135,10 +363,6 @@ footer {
     font-weight: 600;
 }
 
-/* ── Navbar brand colour ─────────────────────────────────── */
-.navbar-brand {
-    font-size: 1.1rem;
-}
 
 /* ── Responsive table scroll ─────────────────────────────── */
 @media (max-width: 576px) {
@@ -146,4 +370,34 @@ footer {
         font-size: 0.85rem;
         padding-right: 7px;
     }
+}
+
+/* ── Tabbed records on the car page ──────────────────────── */
+.gs-tabs-card > .card-header { padding-bottom: 0; background: #fff; }
+.gs-tabs .nav-link {
+    color: #5c636a;
+    font-weight: 500;
+    border: 0;
+    border-bottom: 3px solid transparent;
+    padding: 0.6rem 0.9rem;
+}
+.gs-tabs .nav-link:hover { color: var(--gs-navy); border-bottom-color: #d7e9f6; }
+.gs-tabs .nav-link.active {
+    color: var(--gs-navy);
+    background: transparent;
+    border-bottom-color: var(--gs-sky);
+}
+.gs-tabs-card .tab-pane > .card-footer { border-radius: 0; }
+#records { scroll-margin-top: 80px; }
+/* Opening a tab from the URL hash focuses its panel; the tab itself shows focus. */
+.gs-tabs-card .tab-pane:focus { outline: 0; }
+
+.gs-mini-stat { min-width: 110px; }
+.gs-mini-label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.4px; color: #6c757d; }
+.gs-mini-value { font-size: 1.15rem; font-weight: 700; color: var(--gs-navy); }
+.gs-mini-value small { font-size: 0.75rem; font-weight: 400; color: #6c757d; }
+
+@media (max-width: 575.98px) {
+    .gs-tabs .nav-link { padding: 0.5rem 0.6rem; font-size: 0.9rem; }
+    .gs-tabs .nav-link .badge { display: none; }
 }

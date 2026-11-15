@@ -1,5 +1,4 @@
 {% extends "layout.html" %}
-{% block head %}{% include 'board/_fonts.html' %}{% endblock head %}
 {% block content %}
 
 {% set source_labels = {
@@ -20,14 +19,33 @@
 
 <div class="row g-4">
     <div class="col-lg-4">
-        {# The card as it looks on the board #}
-        {% set t = task %}{% set urgency = {task.id: urgency} %}{% set today = now.date() %}
-        <div class="wb-note-preview">{% include 'board/_card.html' %}</div>
-
-        <div class="card mt-4">
+        <div class="card">
             <div class="card-body">
+                <h2 class="h4 mb-1">
+                    {% if task.priority == 'high' and task.is_open %}<i class="bi bi-exclamation-circle-fill text-danger me-1" title="High priority"></i>{% endif %}
+                    {{ task.title }}
+                </h2>
+                <p class="text-muted mb-3">
+                    {% if task.car %}
+                        <a href="{{ url_for('cars.view_car', car_id=task.car.id) }}" class="text-decoration-none">
+                            <span class="reg-plate reg-plate-sm">{{ task.car.registration | format_reg }}</span>
+                        </a>
+                        <span class="ms-1">{{ task.car.make }} {{ task.car.model }}</span>
+                    {% else %}
+                        <i class="bi bi-house-gear me-1"></i>Garage job
+                    {% endif %}
+                </p>
+                {% if task.is_open and (task.due_date or task.due_mileage) %}
+                <p class="mb-3 {{ 'text-danger fw-semibold' if urgency == 'overdue' else ('text-warning-emphasis fw-semibold' if urgency == 'soon' else '') }}">
+                    <i class="bi bi-calendar-event me-1"></i>Due
+                    {% if task.due_date %}by {{ task.due_date.strftime('%d/%m/%Y') }}{% endif %}
+                    {% if task.due_date and task.due_mileage %} or {% endif %}
+                    {% if task.due_mileage %}at {{ '{:,}'.format(task.due_mileage) }} km{% endif %}
+                    {% if urgency == 'overdue' %}<span class="badge bg-danger ms-1">Overdue</span>{% endif %}
+                </p>
+                {% endif %}
                 <p class="small text-muted mb-2">
-                    Column: <strong>{{ status_names.get(task.status, task.status) }}</strong>
+                    Status: <strong>{{ status_names.get(task.status, task.status) }}</strong>
                     {% if task.is_auto %}<br><i class="bi bi-magic me-1"></i>{{ source_labels.get(task.source, 'Reminder') }}{% endif %}
                     {% if task.schedule_item %}
                     <br>Schedule item: <a href="{{ url_for('upkeep.edit_schedule', car_id=task.schedule_item.car_id, item_id=task.schedule_item.id) }}">{{ task.schedule_item.name }}</a>
@@ -55,10 +73,10 @@
                     </form>
                     {% endif %}
                     <form method="POST" action="{{ url_for('board.delete_task', task_id=task.id) }}" class="d-grid"
-                          onsubmit="return confirm('Rub this card off the board?')">
+                          onsubmit="return confirm('Rub this job off the board?')">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <button type="submit" class="btn btn-outline-danger btn-sm">
-                            <i class="bi bi-eraser me-1"></i>{{ 'Dismiss reminder' if task.is_auto else 'Delete card' }}
+                            <i class="bi bi-eraser me-1"></i>{{ 'Dismiss reminder' if task.is_auto else 'Delete job' }}
                         </button>
                     </form>
                 </div>
@@ -74,7 +92,7 @@
 
     <div class="col-lg-8">
         <div class="card mb-4">
-            <div class="card-header"><h6 class="mb-0"><i class="bi bi-pencil me-2"></i>Edit card</h6></div>
+            <div class="card-header"><h6 class="mb-0"><i class="bi bi-pencil me-2"></i>Edit job</h6></div>
             <div class="card-body">
                 <form method="POST" action="{{ url_for('board.view_task', task_id=task.id) }}">
                     {{ form.hidden_tag() }}
@@ -167,8 +185,8 @@
                     </div>
                 </form>
                 <p class="small text-muted mt-2 mb-0">
-                    Set a part to <em>Ordered</em> and the card moves to Waiting on parts. When everything has
-                    arrived it moves back to To do. When you log the job as a service event, these become its line
+                    Set a part to <em>Ordered</em> and the job is marked Waiting on parts. When everything has
+                    arrived it goes back to To do. When you log the job as a service event, these become its line
                     items, and shelf parts are taken off the shelf.
                 </p>
             </div>
