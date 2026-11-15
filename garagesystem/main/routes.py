@@ -1,8 +1,9 @@
 import json
+from datetime import date
 import os
 from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app
 from flask_login import login_required
-from garagesystem.models import Car, ServiceEvent
+from garagesystem.models import Car, ServiceEvent, Task, StockItem
 
 main = Blueprint('main', __name__)
 
@@ -21,6 +22,21 @@ def home():
     total_spend = sum(c.total_service_spend for c in cars)
     total_events = sum(c.event_count for c in cars)
 
+    from garagesystem.board.utils import sync_auto_tasks, task_urgency
+    sync_auto_tasks()
+    open_tasks = Task.query.filter(Task.status.in_(('todo', 'parts', 'doing'))).all()
+    urgency = {t.id: task_urgency(t) for t in open_tasks}
+    # Most pressing first: overdue, then due soon, then whatever's in progress.
+    rank = {'overdue': 0, 'soon': 1}
+    pressing = sorted(open_tasks, key=lambda t: (rank.get(urgency[t.id], 2), t.status != 'doing',
+                                                  t.due_date or date.max, t.position))[:5]
+    board_summary = {
+        'open': len(open_tasks),
+        'overdue': sum(1 for u in urgency.values() if u == 'overdue'),
+        'parts': sum(1 for t in open_tasks if t.status == 'parts'),
+        'low_stock': sum(1 for s in StockItem.query.all() if s.is_low),
+    }
+
     return render_template(
         'home.html',
         title='Dashboard',
@@ -28,6 +44,9 @@ def home():
         recent_events=recent_events,
         total_spend=total_spend,
         total_events=total_events,
+        board_summary=board_summary,
+        pressing=pressing,
+        urgency=urgency,
     )
 
 

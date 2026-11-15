@@ -1,0 +1,42 @@
+{# Shared fields for adding/editing a card. Expects `form` (TaskForm). #}
+<div class="mb-3">
+    {{ form.title.label(class="form-label fw-semibold") }}
+    {{ form.title(class="form-control", placeholder="e.g. Replace rear wiper, fix boot rattle") }}
+</div>
+<div class="row g-3 mb-3">
+    <div class="col-sm-7">
+        {{ form.car_id.label(class="form-label") }}
+        {{ form.car_id(class="form-select") }}
+    </div>
+    <div class="col-sm-5">
+        {{ form.status.label(class="form-label") }}
+        {{ form.status(class="form-select") }}
+    </div>
+</div>
+<div class="row g-3 mb-3">
+    <div class="col-sm-5">
+        {{ form.due_date.label(class="form-label") }}
+        {{ form.due_date(class="form-control", type="date") }}
+    </div>
+    <div class="col-sm-7">
+        {{ form.due_mileage.label(class="form-label") }}
+        <div class="input-group">
+            {{ form.due_mileage(class="form-control", placeholder="Optional") }}
+            {{ form.due_mileage_unit(class="form-select", style="max-width:90px;") }}
+        </div>
+    </div>
+</div>
+<div class="row g-3 mb-3">
+    <div class="col-6">
+        {{ form.priority.label(class="form-label") }}
+        {{ form.priority(class="form-select") }}
+    </div>
+    <div class="col-6">
+        {{ form.colour.label(class="form-label") }}
+        {{ form.colour(class="form-select") }}
+    </div>
+</div>
+<div class="mb-1">
+    {{ form.notes.label(class="form-label") }}
+    {{ form.notes(class="form-control", rows=3, placeholder="Anything worth remembering") }}
+</div>

@@ -71,6 +71,18 @@ class Car(db.Model):
         'ServiceEvent', backref='car', lazy=True,
         cascade='all, delete-orphan'
     )
+    fuel_logs = db.relationship(
+        'FuelLog', backref='car', lazy=True,
+        cascade='all, delete-orphan'
+    )
+    schedule_items = db.relationship(
+        'MaintenanceSchedule', backref='car', lazy=True,
+        cascade='all, delete-orphan', order_by='MaintenanceSchedule.name'
+    )
+    tasks = db.relationship(
+        'Task', backref='car', lazy=True,
+        cascade='all, delete-orphan'
+    )
 
     def __repr__(self):
         return f'{self.registration} - {self.make} {self.model}'
@@ -90,6 +102,18 @@ class Car(db.Model):
     @property
     def event_count(self):
         return len(self.service_events)
+
+    @property
+    def ordered_fuel_logs(self):
+        return sorted(self.fuel_logs, key=lambda f: (f.date, f.mileage or 0), reverse=True)
+
+    @property
+    def total_fuel_spend(self):
+        return round(sum(f.total_cost or 0 for f in self.fuel_logs), 2)
+
+    @property
+    def open_tasks(self):
+        return [t for t in self.tasks if t.is_open]
 
     @property
     def latest_mileage(self):
@@ -115,6 +139,12 @@ class MileageLog(db.Model):
     # purchase_date, so it can be kept in sync the same way source_event_id keeps
     # an event's mileage log in sync.
     is_purchase_mileage = db.Column(db.Boolean, nullable=False, default=False, server_default='0')
+    # When this log was auto-created from a FuelLog fill-up, this points back to it.
+    source_fuel_id = db.Column(
+        db.Integer,
+        db.ForeignKey('fuel_log.id', ondelete='SET NULL'),
+        nullable=True,
+    )
     date_added = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 
     def __repr__(self):
@@ -143,12 +173,21 @@ class ServiceEvent(db.Model):
     # Manual override for the next NCT due date (Pass results only) — takes
     # priority over the estimate derived from Irish NCT interval rules.
     nct_next_due = db.Column(db.Date, nullable=True)
+    # Tax / Insurance only: the date the motor tax disc or insurance policy
+    # paid for by this event runs out. Drives the renewal reminders.
+    expiry_date = db.Column(db.Date, nullable=True)
     date_added = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     date_modified = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 
     line_items = db.relationship(
         'EventLineItem', backref='event', lazy=True,
         cascade='all, delete-orphan'
+    )
+    # Maintenance schedule items (timing belt, brake fluid, ...) this event
+    # carried out. The latest linked event resets that item's due date.
+    schedule_items = db.relationship(
+        'MaintenanceSchedule', secondary='event_schedule_link',
+        backref=db.backref('events', lazy=True), lazy=True,
     )
 
     @property
@@ -191,7 +230,16 @@ class EventLineItem(db.Model):
     quantity = db.Column(db.Float, nullable=False, default=1.0)
     unit_cost = db.Column(db.Float, nullable=False, default=0.0)
     shipping_cost = db.Column(db.Float, nullable=False, default=0.0, server_default='0')
+    # Set when this item was taken from the shelf: its quantity was deducted
+    # from that stock item, and is returned if the line item is removed.
+    stock_item_id = db.Column(
+        db.Integer,
+        db.ForeignKey('stock_item.id', ondelete='SET NULL'),
+        nullable=True,
+    )
     date_added = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    stock_item = db.relationship('StockItem', lazy=True)
 
     @property
     def total(self):
@@ -199,3 +247,158 @@ class EventLineItem(db.Model):
 
     def __repr__(self):
         return f'LineItem({self.description} x{self.quantity})'
+
+
+event_schedule_link = db.Table(
+    'event_schedule_link',
+    db.Column('event_id', db.Integer, db.ForeignKey('service_event.id', ondelete='CASCADE'), primary_key=True),
+    db.Column('schedule_id', db.Integer, db.ForeignKey('maintenance_schedule.id', ondelete='CASCADE'), primary_key=True),
+)
+
+
+class MaintenanceSchedule(db.Model):
+    """A recurring maintenance item for one car, e.g. "Timing belt every
+    100,000 km or 5 years". Either interval may be blank; whichever comes
+    first sets the due date."""
+    id = db.Column(db.Integer, primary_key=True)
+    car_id = db.Column(db.Integer, db.ForeignKey('car.id'), nullable=False)
+    name = db.Column(db.String(100), nullable=False)
+    interval_km = db.Column(db.Integer, nullable=True)
+    interval_months = db.Column(db.Integer, nullable=True)
+    # When it was last done before it was tracked here. A linked event that is
+    # more recent takes priority.
+    last_done_date = db.Column(db.Date, nullable=True)
+    last_done_mileage = db.Column(db.Integer, nullable=True)
+    notes = db.Column(db.String(300), nullable=True)
+    date_added = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f'MaintenanceSchedule({self.name})'
+
+
+class FuelLog(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    car_id = db.Column(db.Integer, db.ForeignKey('car.id'), nullable=False)
+    date = db.Column(db.Date, nullable=False, default=date.today)
+    mileage = db.Column(db.Integer, nullable=True)          # odometer, km
+    litres = db.Column(db.Float, nullable=False)             # litres (kWh for EVs)
+    total_cost = db.Column(db.Float, nullable=True)
+    # Economy is measured full-tank to full-tank, so partial fills are summed
+    # into the next full one.
+    full_tank = db.Column(db.Boolean, nullable=False, default=True, server_default='1')
+    station = db.Column(db.String(120), nullable=True)
+    notes = db.Column(db.String(300), nullable=True)
+    date_added = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    @property
+    def price_per_litre(self):
+        if self.total_cost and self.litres:
+            return round(self.total_cost / self.litres, 3)
+        return None
+
+    def __repr__(self):
+        return f'FuelLog({self.litres}L on {self.date})'
+
+
+class StockItem(db.Model):
+    """Something on the garage shelf: oil, filters, bulbs, fluids."""
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(200), nullable=False)
+    category = db.Column(db.String(50), nullable=False, default='Other')
+    part_number = db.Column(db.String(100), nullable=True)
+    quantity = db.Column(db.Float, nullable=False, default=0, server_default='0')
+    unit = db.Column(db.String(20), nullable=False, default='pcs', server_default='pcs')
+    unit_cost = db.Column(db.Float, nullable=True)
+    # At or below this quantity the item is "low" and a restock card goes on
+    # the whiteboard.
+    min_quantity = db.Column(db.Float, nullable=True)
+    location = db.Column(db.String(100), nullable=True)
+    fits = db.Column(db.String(200), nullable=True)     # e.g. "Golf, Octavia"
+    notes = db.Column(db.String(300), nullable=True)
+    # Bumped whenever the quantity goes up, so a new low-stock card can be
+    # raised after the previous one was dealt with.
+    last_restocked = db.Column(db.DateTime, nullable=True)
+    date_added = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    @property
+    def is_low(self):
+        return self.min_quantity is not None and self.quantity <= self.min_quantity
+
+    def __repr__(self):
+        return f'StockItem({self.name} x{self.quantity})'
+
+
+TASK_STATUSES = ('todo', 'parts', 'doing', 'done')
+
+
+class Task(db.Model):
+    """A card on the garage whiteboard."""
+    id = db.Column(db.Integer, primary_key=True)
+    # Blank for garage-wide jobs ("buy axle stands").
+    car_id = db.Column(db.Integer, db.ForeignKey('car.id'), nullable=True)
+    title = db.Column(db.String(200), nullable=False)
+    notes = db.Column(db.Text, nullable=True)
+    # todo | parts | doing | done | dismissed (an auto card that was binned)
+    status = db.Column(db.String(20), nullable=False, default='todo', server_default='todo')
+    priority = db.Column(db.String(10), nullable=False, default='normal', server_default='normal')
+    colour = db.Column(db.String(20), nullable=False, default='yellow', server_default='yellow')
+    due_date = db.Column(db.Date, nullable=True)
+    due_mileage = db.Column(db.Integer, nullable=True)
+    position = db.Column(db.Integer, nullable=False, default=0, server_default='0')
+    # Cards raised automatically: 'schedule', 'service', 'nct', 'tax',
+    # 'insurance' or 'stock'. source_key identifies the thing that's due and
+    # its cycle, so a card is raised once per cycle (see board.utils).
+    source = db.Column(db.String(20), nullable=False, default='manual', server_default='manual')
+    source_key = db.Column(db.String(120), nullable=True, index=True)
+    schedule_id = db.Column(
+        db.Integer, db.ForeignKey('maintenance_schedule.id', ondelete='SET NULL'), nullable=True)
+    stock_item_id = db.Column(
+        db.Integer, db.ForeignKey('stock_item.id', ondelete='SET NULL'), nullable=True)
+    # The service event logged when this card was completed.
+    event_id = db.Column(
+        db.Integer, db.ForeignKey('service_event.id', ondelete='SET NULL'), nullable=True)
+    completed_at = db.Column(db.DateTime, nullable=True)
+    date_added = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    parts = db.relationship(
+        'TaskPart', backref='task', lazy=True,
+        cascade='all, delete-orphan', order_by='TaskPart.id'
+    )
+    schedule_item = db.relationship('MaintenanceSchedule', lazy=True)
+    stock_item = db.relationship('StockItem', lazy=True)
+    event = db.relationship('ServiceEvent', lazy=True)
+
+    @property
+    def is_open(self):
+        return self.status in ('todo', 'parts', 'doing')
+
+    @property
+    def is_auto(self):
+        return self.source != 'manual'
+
+    def __repr__(self):
+        return f'Task({self.title} [{self.status}])'
+
+
+PART_STATUSES = ('needed', 'ordered', 'arrived')
+
+
+class TaskPart(db.Model):
+    """A part a whiteboard job needs. Becomes a line item when the job is
+    logged as a service event."""
+    id = db.Column(db.Integer, primary_key=True)
+    task_id = db.Column(db.Integer, db.ForeignKey('task.id'), nullable=False)
+    description = db.Column(db.String(300), nullable=False)
+    part_number = db.Column(db.String(100), nullable=True)
+    quantity = db.Column(db.Float, nullable=False, default=1.0)
+    unit_cost = db.Column(db.Float, nullable=True)
+    status = db.Column(db.String(20), nullable=False, default='needed', server_default='needed')
+    # Take it from the shelf instead of buying it.
+    stock_item_id = db.Column(
+        db.Integer, db.ForeignKey('stock_item.id', ondelete='SET NULL'), nullable=True)
+    date_added = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    stock_item = db.relationship('StockItem', lazy=True)
+
+    def __repr__(self):
+        return f'TaskPart({self.description})'

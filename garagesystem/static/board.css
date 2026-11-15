@@ -1,0 +1,513 @@
+/* =========================================================
+   Garage whiteboard
+   An aluminium-framed whiteboard with marker-pen headings,
+   sticky notes held on by magnets, and a marker tray.
+   ========================================================= */
+
+:root {
+    --wb-ink-black: #23262b;
+    --wb-ink-red: #c62828;
+    --wb-ink-blue: #1f4fbf;
+    --wb-ink-green: #2e7d32;
+    --wb-ink-orange: #e65100;
+    --wb-note-yellow: #fff1a1;
+    --wb-note-pink: #ffcfe0;
+    --wb-note-blue: #c6e3ff;
+    --wb-note-green: #d3f5c4;
+    --wb-note-orange: #ffd9a8;
+    --wb-marker-font: 'Permanent Marker', 'Comic Sans MS', cursive;
+    --wb-hand-font: 'Kalam', 'Comic Sans MS', cursive;
+}
+
+/* ── Frame ─────────────────────────────────────────────── */
+.wb-frame {
+    position: relative;
+    padding: 14px;
+    border-radius: 10px;
+    background: linear-gradient(180deg, #eef0f2 0%, #c3c8ce 18%, #e4e7ea 50%, #b4bac1 82%, #dfe2e5 100%);
+    box-shadow:
+        0 18px 30px -12px rgba(0, 0, 0, 0.35),
+        0 2px 4px rgba(0, 0, 0, 0.15),
+        inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.wb-corner {
+    position: absolute;
+    width: 22px;
+    height: 22px;
+    background: linear-gradient(145deg, #4b5057, #24272b);
+    z-index: 2;
+}
+.wb-corner.tl { top: 0; left: 0; border-radius: 10px 0 8px 0; }
+.wb-corner.tr { top: 0; right: 0; border-radius: 0 10px 0 8px; }
+.wb-corner.bl { bottom: 0; left: 0; border-radius: 0 8px 0 10px; }
+.wb-corner.br { bottom: 0; right: 0; border-radius: 8px 0 10px 0; }
+
+/* ── Board surface ─────────────────────────────────────── */
+.wb-board {
+    position: relative;
+    overflow: hidden;
+    min-height: 520px;
+    padding: 18px 20px 26px;
+    border-radius: 3px;
+    background:
+        radial-gradient(ellipse 60% 40% at 18% 8%, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0) 70%),
+        radial-gradient(ellipse 50% 35% at 85% 95%, rgba(206, 214, 224, 0.55), rgba(206, 214, 224, 0) 70%),
+        linear-gradient(125deg, #fbfcfd 0%, #f0f3f6 40%, #fdfefe 52%, #eceff3 100%);
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08), inset 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* Ghosts of old writing that never quite wiped off */
+.wb-board::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.05;
+    background-image:
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='420' height='260'%3E%3Cg fill='none' stroke='%23333' stroke-width='3' stroke-linecap='round'%3E%3Cpath d='M30 60 q20 -18 40 0 t40 0 t40 0 t40 4'/%3E%3Cpath d='M60 90 l90 -6'/%3E%3Cpath d='M250 190 q14 -14 28 0 t28 0 t30 2'/%3E%3Cpath d='M300 40 c10 20 30 20 40 0'/%3E%3Cpath d='M40 210 l70 4 m-62 14 l55 0'/%3E%3C/g%3E%3C/svg%3E");
+    background-size: 840px 520px;
+    background-position: 120px 60px;
+    filter: blur(1.4px);
+}
+
+/* A diagonal sheen */
+.wb-board::after {
+    content: "";
+    position: absolute;
+    top: -40%;
+    left: -10%;
+    width: 45%;
+    height: 180%;
+    transform: rotate(18deg);
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0));
+    pointer-events: none;
+}
+
+.wb-board > * { position: relative; z-index: 1; }
+
+/* ── Header ────────────────────────────────────────────── */
+.wb-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.25rem 1rem;
+    margin-bottom: 0.4rem;
+}
+.wb-title {
+    font-family: var(--wb-marker-font);
+    font-size: clamp(1.7rem, 4vw, 2.4rem);
+    color: var(--wb-ink-blue);
+    margin: 0;
+    transform: rotate(-1.2deg);
+    letter-spacing: 0.5px;
+}
+.wb-date {
+    font-family: var(--wb-marker-font);
+    font-size: 1.15rem;
+    color: var(--wb-ink-black);
+    transform: rotate(1deg);
+}
+
+.wb-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem 0.6rem;
+    margin-bottom: 1rem;
+    font-family: var(--wb-hand-font);
+}
+.wb-toolbar-label { color: #555; font-size: 1.05rem; }
+
+.wb-chip {
+    font-family: var(--wb-hand-font);
+    font-weight: 700;
+    font-size: 0.98rem;
+    line-height: 1.2;
+    color: var(--wb-ink-black);
+    background: transparent;
+    border: 2px solid rgba(35, 38, 43, 0.55);
+    /* hand-drawn wobble */
+    border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px;
+    padding: 0.15rem 0.7rem;
+    cursor: pointer;
+    transition: background-color 0.15s, color 0.15s;
+}
+.wb-chip:hover { background: rgba(31, 79, 191, 0.07); }
+.wb-chip.active {
+    color: #fff;
+    background: var(--wb-ink-blue);
+    border-color: var(--wb-ink-blue);
+}
+
+.wb-tally {
+    margin-left: auto;
+    font-family: var(--wb-marker-font);
+    font-size: 1.05rem;
+    color: var(--wb-ink-black);
+}
+.wb-tally .wb-circled {
+    display: inline-block;
+    color: var(--wb-ink-red);
+    padding: 0 0.45rem;
+    border: 2.5px solid var(--wb-ink-red);
+    border-radius: 50% 45% 55% 48% / 55% 50% 45% 50%;
+    transform: rotate(-4deg);
+}
+
+/* ── Columns ───────────────────────────────────────────── */
+.wb-columns {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0 22px;
+}
+
+.wb-col {
+    position: relative;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Hand-drawn divider between columns */
+.wb-col + .wb-col::before {
+    content: "";
+    position: absolute;
+    left: -13px;
+    top: 4px;
+    bottom: 6px;
+    width: 3px;
+    background: var(--wb-ink-black);
+    opacity: 0.72;
+    border-radius: 3px 1px 4px 2px;
+    transform: rotate(0.35deg);
+}
+.wb-col:nth-child(3)::before { transform: rotate(-0.4deg); }
+
+.wb-col-title {
+    font-family: var(--wb-marker-font);
+    font-size: 1.3rem;
+    margin: 0 0 0.6rem;
+    padding-bottom: 6px;
+    background-repeat: no-repeat;
+    background-position: left bottom;
+    background-size: 100% 8px;
+    white-space: nowrap;
+}
+.wb-col-title .wb-count {
+    font-size: 0.95rem;
+    opacity: 0.6;
+    margin-left: 0.2rem;
+}
+.ink-black { color: var(--wb-ink-black); }
+.ink-red   { color: var(--wb-ink-red); }
+.ink-blue  { color: var(--wb-ink-blue); }
+.ink-green { color: var(--wb-ink-green); }
+.wb-col-title.ink-black { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 8' preserveAspectRatio='none'%3E%3Cpath d='M2 5 Q50 1 100 4 T198 3' stroke='%2323262b' stroke-width='2.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); }
+.wb-col-title.ink-red   { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 8' preserveAspectRatio='none'%3E%3Cpath d='M2 5 Q50 1 100 4 T198 3' stroke='%23c62828' stroke-width='2.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); }
+.wb-col-title.ink-blue  { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 8' preserveAspectRatio='none'%3E%3Cpath d='M2 5 Q50 1 100 4 T198 3' stroke='%231f4fbf' stroke-width='2.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); }
+.wb-col-title.ink-green { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 8' preserveAspectRatio='none'%3E%3Cpath d='M2 5 Q50 1 100 4 T198 3' stroke='%232e7d32' stroke-width='2.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); }
+
+.wb-cards {
+    flex: 1;
+    min-height: 120px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 10px 2px 8px;
+}
+
+.wb-empty {
+    display: none;
+    position: absolute;
+    top: 64px;
+    left: 0;
+    right: 0;
+    font-family: var(--wb-hand-font);
+    color: #9aa0a6;
+    font-size: 1.05rem;
+    text-align: center;
+    margin: 0;
+    pointer-events: none;
+}
+.wb-col.is-empty .wb-empty { display: block; }
+
+.wb-add {
+    margin-top: 6px;
+    font-family: var(--wb-marker-font);
+    font-size: 1.05rem;
+    color: var(--wb-ink-blue);
+    background: transparent;
+    border: 2px dashed rgba(31, 79, 191, 0.45);
+    border-radius: 12px 4px 10px 6px;
+    padding: 0.5rem;
+    cursor: pointer;
+    transition: background-color 0.15s;
+}
+.wb-add:hover, .wb-add:focus-visible { background: rgba(31, 79, 191, 0.07); }
+
+/* ── Sticky notes ──────────────────────────────────────── */
+.wb-note {
+    position: relative;
+    padding: 18px 14px 12px;
+    font-family: var(--wb-hand-font);
+    color: #2a2a2a;
+    background: var(--wb-note-yellow);
+    border-radius: 2px 2px 3px 18px / 2px 2px 3px 6px;
+    box-shadow:
+        0 1px 1px rgba(0, 0, 0, 0.08),
+        0 8px 12px -6px rgba(0, 0, 0, 0.35);
+    transform: rotate(-1.1deg);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    cursor: grab;
+    touch-action: manipulation;
+}
+.wb-note:nth-child(3n+2) { transform: rotate(0.9deg); }
+.wb-note:nth-child(3n)   { transform: rotate(-0.4deg); }
+.wb-note:hover {
+    transform: rotate(0deg) translateY(-2px);
+    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.08), 0 14px 18px -8px rgba(0, 0, 0, 0.4);
+}
+/* Slight fold shading on the bottom-left curl */
+.wb-note::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 40%;
+    height: 14px;
+    background: linear-gradient(10deg, rgba(0, 0, 0, 0.07), rgba(0, 0, 0, 0));
+    border-bottom-left-radius: 18px 6px;
+    pointer-events: none;
+}
+
+.note-yellow { background: var(--wb-note-yellow); }
+.note-pink   { background: var(--wb-note-pink); }
+.note-blue   { background: var(--wb-note-blue); }
+.note-green  { background: var(--wb-note-green); }
+.note-orange { background: var(--wb-note-orange); }
+
+/* Magnet */
+.wb-magnet {
+    position: absolute;
+    top: -7px;
+    left: 50%;
+    width: 18px;
+    height: 18px;
+    margin-left: -9px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #ff8a80 0%, #e53935 45%, #8e1414 100%);
+    box-shadow: 0 3px 4px rgba(0, 0, 0, 0.35);
+}
+.note-pink   .wb-magnet { background: radial-gradient(circle at 35% 30%, #90caf9 0%, #1e88e5 45%, #0d3c78 100%); }
+.note-blue   .wb-magnet { background: radial-gradient(circle at 35% 30%, #ffe082 0%, #f9a825 45%, #8a5a00 100%); }
+.note-green  .wb-magnet { background: radial-gradient(circle at 35% 30%, #ce93d8 0%, #8e24aa 45%, #4a0f5a 100%); }
+.note-orange .wb-magnet { background: radial-gradient(circle at 35% 30%, #a5d6a7 0%, #43a047 45%, #1b5e20 100%); }
+
+.wb-note-link {
+    color: inherit;
+    text-decoration: none;
+    display: block;
+}
+.wb-note-link:hover { color: inherit; }
+.wb-note-link:focus-visible { outline: 2px solid var(--wb-ink-blue); outline-offset: 4px; }
+
+.wb-note-title {
+    font-weight: 700;
+    font-size: 1.12rem;
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+}
+.wb-bang {
+    font-family: var(--wb-marker-font);
+    color: var(--wb-ink-red);
+    margin-right: 0.25rem;
+}
+.wb-note-car {
+    margin-top: 2px;
+    font-size: 0.95rem;
+    color: #4a4a4a;
+}
+.wb-note-car strong { letter-spacing: 0.5px; }
+
+.wb-note-meta {
+    margin-top: 6px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.1rem 0.75rem;
+    font-size: 0.95rem;
+    line-height: 1.25;
+}
+.wb-note-meta .bi { font-size: 0.85em; margin-right: 0.15rem; }
+.wb-due-overdue { color: var(--wb-ink-red); font-weight: 700; }
+.wb-due-soon    { color: var(--wb-ink-orange); font-weight: 700; }
+
+.wb-note-foot {
+    margin-top: 6px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.85rem;
+    color: #666;
+}
+
+/* Keep the title clear of the stamp */
+.wb-note.is-overdue .wb-note-title { padding-right: 64px; }
+
+/* "OVERDUE" scrawled across the corner */
+.wb-stamp {
+    position: absolute;
+    top: 6px;
+    right: 8px;
+    font-family: var(--wb-marker-font);
+    font-size: 0.85rem;
+    color: var(--wb-ink-red);
+    border: 2px solid var(--wb-ink-red);
+    border-radius: 4px 8px 3px 7px;
+    padding: 0 0.3rem;
+    transform: rotate(8deg);
+    opacity: 0.9;
+    pointer-events: none;
+}
+
+/* Done: faded, struck through in green marker */
+.wb-note.is-done { opacity: 0.6; }
+.wb-note.is-done .wb-note-title {
+    text-decoration: line-through;
+    text-decoration-color: var(--wb-ink-green);
+    text-decoration-thickness: 3px;
+}
+.wb-tick {
+    font-family: var(--wb-marker-font);
+    color: var(--wb-ink-green);
+    font-size: 1.4rem;
+    position: absolute;
+    right: 10px;
+    bottom: 4px;
+    transform: rotate(-8deg);
+}
+
+/* Drag states (SortableJS) */
+.wb-note.sortable-ghost { opacity: 0.35; }
+.wb-note.sortable-chosen { cursor: grabbing; }
+.wb-note.sortable-drag { transform: rotate(3deg) scale(1.03) !important; }
+
+/* ── Marker tray ───────────────────────────────────────── */
+.wb-tray {
+    position: relative;
+    height: 26px;
+    margin: 0 4% 0;
+    background: linear-gradient(180deg, #d9dde1 0%, #a9b0b7 60%, #8d949b 100%);
+    border-radius: 0 0 10px 10px;
+    box-shadow: 0 6px 10px -4px rgba(0, 0, 0, 0.35);
+}
+.wb-tray-items {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: -9px;
+    display: flex;
+    align-items: flex-end;
+    gap: 14px;
+    padding: 0 18px;
+}
+.wb-marker {
+    position: relative;
+    width: 92px;
+    height: 14px;
+    border-radius: 7px 3px 3px 7px;
+    background: linear-gradient(180deg, #ffffff, #e2e5e8 60%, #c5cad0);
+    box-shadow: 0 2px 3px rgba(0, 0, 0, 0.3);
+}
+.wb-marker::before {          /* cap */
+    content: "";
+    position: absolute;
+    left: 0;
+    top: -1px;
+    width: 30px;
+    height: 16px;
+    border-radius: 8px 3px 3px 8px;
+    background: var(--cap, #222);
+}
+.wb-marker::after {           /* band */
+    content: "";
+    position: absolute;
+    right: 10px;
+    top: 0;
+    width: 22px;
+    height: 14px;
+    background: var(--cap, #222);
+    opacity: 0.85;
+}
+.wb-marker.m-black { --cap: #2a2d31; }
+.wb-marker.m-blue  { --cap: #1f4fbf; }
+.wb-marker.m-red   { --cap: #c62828; }
+.wb-marker.m-green { --cap: #2e7d32; }
+
+.wb-eraser-form { margin-left: auto; }
+.wb-eraser {
+    position: relative;
+    width: 76px;
+    height: 26px;
+    padding: 0;
+    border: 0;
+    border-radius: 5px 5px 3px 3px;
+    background: linear-gradient(180deg, #4a4f57, #2a2e33);
+    box-shadow: 0 3px 4px rgba(0, 0, 0, 0.35);
+    cursor: pointer;
+    transition: transform 0.15s;
+}
+.wb-eraser::after {           /* felt */
+    content: "";
+    position: absolute;
+    left: 3px;
+    right: 3px;
+    bottom: -5px;
+    height: 7px;
+    border-radius: 0 0 3px 3px;
+    background: repeating-linear-gradient(90deg, #8a8f96 0 2px, #9da2a8 2px 4px);
+}
+.wb-eraser:hover, .wb-eraser:focus-visible { transform: translateY(-3px) rotate(-3deg); }
+.wb-eraser-label {
+    color: #f1f3f5;
+    font-family: var(--wb-hand-font);
+    font-weight: 700;
+    font-size: 0.8rem;
+    line-height: 26px;
+}
+
+/* ── Card detail page ──────────────────────────────────── */
+.wb-note-preview {
+    max-width: 340px;
+    margin: 10px auto 0;
+    cursor: default;
+}
+.wb-hand { font-family: var(--wb-hand-font); }
+.wb-marker-heading { font-family: var(--wb-marker-font); }
+
+/* ── Small screens: stack the columns ──────────────────── */
+@media (max-width: 991.98px) {
+    .wb-columns { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 22px; }
+    .wb-col:nth-child(3)::before { display: none; }
+}
+@media (max-width: 575.98px) {
+    .wb-frame { padding: 8px; margin: 0 -6px; }
+    .wb-board { padding: 14px 12px 18px; }
+    .wb-columns { grid-template-columns: minmax(0, 1fr); gap: 22px; }
+    .wb-col + .wb-col::before {
+        left: 4px; right: 4px; top: -12px; bottom: auto;
+        width: auto; height: 3px;
+        transform: rotate(-0.3deg);
+        display: block !important;
+    }
+    .wb-cards { min-height: 70px; }
+    .wb-empty { top: 58px; }
+    .wb-tally { margin-left: 0; width: 100%; }
+    .wb-marker { width: 64px; }
+    .wb-marker.m-green, .wb-marker.m-red { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .wb-note, .wb-eraser { transition: none; }
+}

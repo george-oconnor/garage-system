@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, session, current_app
 from flask_login import login_required
-from datetime import datetime
+from datetime import datetime, date
 import os, uuid
 
 from garagesystem import db
@@ -9,7 +9,9 @@ from garagesystem.cars.forms import PlateSearchForm, AddCarForm, EditCarForm, Ad
 from garagesystem.cars.utils import (
     parse_irish_plate, lookup_vehicle_api, normalize_fuel_type, normalize_transmission,
     fetch_car_image, convert_mileage_to_km, estimate_mileage_at_date, compute_car_insights,
+    schedule_item_status,
 )
+from garagesystem.upkeep.forms import FuelLogForm, ScheduleForm, SCHEDULE_PRESETS
 
 cars = Blueprint('cars', __name__)
 
@@ -168,9 +170,23 @@ def view_car(car_id):
             if estimated is not None:
                 event_mileages[event.id] = (estimated, True)
 
+    insights = compute_car_insights(car)
+    schedule = [(item, schedule_item_status(item, car, insights['annual_mileage'])) for item in car.schedule_items]
+    status_rank = {'overdue': 0, 'due_soon': 1, 'ok': 2, 'unknown': 3}
+    schedule.sort(key=lambda r: (status_rank[r[1]['status']], r[1]['due_date'] or date.max, r[0].name))
+    have = {i.name.lower() for i in car.schedule_items}
+
+    # Reminder cards are raised on page view, so the car page lists the same
+    # cards the whiteboard would show.
+    from garagesystem.board.utils import sync_auto_tasks
+    sync_auto_tasks()
+
     return render_template(
         'cars/view_car.html', title=str(car), car=car, mileage_form=mileage_form,
-        event_mileages=event_mileages, insights=compute_car_insights(car),
+        event_mileages=event_mileages, insights=insights,
+        schedule=schedule, schedule_form=ScheduleForm(prefix='sched'),
+        presets=[p for p in SCHEDULE_PRESETS if p[0].lower() not in have],
+        fuel_form=FuelLogForm(), open_tasks=sorted(car.open_tasks, key=lambda t: (t.status != 'doing', t.position)),
     )
 
 

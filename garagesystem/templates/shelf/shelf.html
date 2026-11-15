@@ -1,0 +1,119 @@
+{% extends "layout.html" %}
+{% block content %}
+
+{% set category_icons = {
+    'Oil': 'droplet-half', 'Filters': 'funnel', 'Bulbs': 'lightbulb', 'Fluids': 'droplet',
+    'Brakes': 'disc', 'Wipers': 'cloud-drizzle', 'Fixings': 'nut', 'Other': 'box'
+} %}
+
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <div>
+        <h2 class="mb-1"><i class="bi bi-box-seam me-2 text-primary"></i>Parts on the Shelf</h2>
+        <p class="text-muted mb-0 small">
+            {{ item_count }} item(s)
+            {% if stock_value %} · about €{{ '%.2f'|format(stock_value) }} worth{% endif %}
+            {% if low_count %} · <span class="text-danger fw-semibold">{{ low_count }} running low</span>{% endif %}
+        </p>
+    </div>
+    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addStockModal">
+        <i class="bi bi-plus-circle me-1"></i>Add to Shelf
+    </button>
+</div>
+
+{% if groups %}
+{% for category, items in groups %}
+<h5 class="section-heading"><i class="bi bi-{{ category_icons.get(category, 'box') }} me-2"></i>{{ category }}</h5>
+<div class="card mb-4">
+    <div class="table-responsive">
+        {# Fixed layout so every category's columns line up #}
+        <table class="table table-hover align-middle mb-0" style="table-layout: fixed;">
+            <thead class="table-light">
+                <tr>
+                    <th class="ps-3">Item</th>
+                    <th class="d-none d-md-table-cell" style="width: 22%;">Where</th>
+                    <th class="text-end d-none d-sm-table-cell" style="width: 90px;">Each</th>
+                    <th class="text-center" style="width: 170px;">On the shelf</th>
+                    <th style="width: 64px;"></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in items %}
+                <tr id="stock-{{ item.id }}" class="{{ 'table-danger' if item.is_low else '' }}">
+                    <td class="ps-3">
+                        <span class="fw-semibold">{{ item.name }}</span>
+                        {% if item.is_low %}<span class="badge bg-danger ms-1">Low</span>{% endif %}
+                        <div class="small text-muted">
+                            {% if item.part_number %}<span class="font-monospace">{{ item.part_number }}</span>{% endif %}
+                            {% if item.part_number and item.fits %} · {% endif %}
+                            {% if item.fits %}Fits {{ item.fits }}{% endif %}
+                            {% if item.location %}<span class="d-md-none">{% if item.part_number or item.fits %} · {% endif %}{{ item.location }}</span>{% endif %}
+                        </div>
+                    </td>
+                    <td class="small text-muted d-none d-md-table-cell">{{ item.location or '' }}</td>
+                    <td class="text-end small d-none d-sm-table-cell">{% if item.unit_cost is not none %}€{{ '%.2f'|format(item.unit_cost) }}{% else %}<span class="text-muted">—</span>{% endif %}</td>
+                    <td>
+                        <div class="d-flex align-items-center justify-content-center gap-2">
+                            <form method="POST" action="{{ url_for('shelf.adjust_item', item_id=item.id) }}">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="delta" value="-1">
+                                <button type="submit" class="btn btn-outline-secondary btn-sm px-2" {% if item.quantity <= 0 %}disabled{% endif %}
+                                        aria-label="One less {{ item.name }}"><i class="bi bi-dash"></i></button>
+                            </form>
+                            <span class="fw-bold text-nowrap" style="min-width: 56px; text-align:center;">
+                                {{ '%g'|format(item.quantity) }} <small class="text-muted fw-normal">{{ item.unit }}</small>
+                            </span>
+                            <form method="POST" action="{{ url_for('shelf.adjust_item', item_id=item.id) }}">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="delta" value="1">
+                                <button type="submit" class="btn btn-outline-secondary btn-sm px-2"
+                                        aria-label="One more {{ item.name }}"><i class="bi bi-plus"></i></button>
+                            </form>
+                        </div>
+                        {% if item.min_quantity is not none %}
+                        <div class="text-center small text-muted">restock at {{ '%g'|format(item.min_quantity) }}</div>
+                        {% endif %}
+                    </td>
+                    <td class="text-end pe-3">
+                        <a href="{{ url_for('shelf.edit_item', item_id=item.id) }}" class="btn btn-outline-primary btn-sm" title="Edit">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endfor %}
+{% else %}
+<div class="text-center py-5 text-muted border rounded bg-white">
+    <i class="bi bi-box-seam fs-1 d-block mb-3 opacity-25"></i>
+    <h5>The shelf is empty</h5>
+    <p class="mb-3">Add the oil, filters and bulbs you keep in stock. When you use one on a service event,
+        pick it from the shelf and it's deducted automatically.</p>
+    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addStockModal">
+        <i class="bi bi-plus-circle me-1"></i>Add the First Item
+    </button>
+</div>
+{% endif %}
+
+<div class="modal fade" id="addStockModal" tabindex="-1" aria-labelledby="addStockModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('shelf.add_item') }}">
+                {{ form.hidden_tag() }}
+                <div class="modal-header">
+                    <h5 class="modal-title" id="addStockModalLabel"><i class="bi bi-box-seam me-2"></i>Add to Shelf</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">{% include 'shelf/_fields.html' %}</div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    {{ form.submit(class="btn btn-primary") }}
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock content %}

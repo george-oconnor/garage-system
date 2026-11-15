@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Vehicle History: {{ car.registration }}</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 1.5cm 1.5cm 2cm 1.5cm;
+            @frame footer {
+                -pdf-frame-content: footerContent;
+                bottom: 0.7cm;
+                margin-left: 1.5cm;
+                margin-right: 1.5cm;
+                height: 0.8cm;
+            }
+        }
+        body { font-family: Arial, Helvetica, sans-serif; font-size: 10px; color: #222; line-height: 1.35; }
+        .header { border-bottom: 3px solid #1a1a2e; padding-bottom: 8px; margin-bottom: 12px; }
+        .header-title { font-size: 20px; font-weight: bold; color: #1a1a2e; margin: 0; }
+        .header-sub { font-size: 9px; color: #666; margin: 2px 0 0 0; }
+        .reg-number { font-weight: bold; font-size: 18px; letter-spacing: 3px; color: #1a1a2e; }
+        .section { margin-bottom: 14px; }
+        .section-title {
+            font-size: 10px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.8px;
+            background-color: #1a1a2e; color: #fff; padding: 4px 8px; margin-bottom: 0;
+        }
+        .info-table { width: 100%; border-collapse: collapse; border: 1px solid #ddd; }
+        .info-table td { padding: 4px 8px; border: 1px solid #ddd; font-size: 10px; vertical-align: top; }
+        .info-table .label { font-weight: bold; background-color: #f5f5f5; width: 18%; color: #444; }
+        .list-table { width: 100%; border-collapse: collapse; }
+        .list-table th {
+            background-color: #e9ebf0; color: #1a1a2e; padding: 4px 6px; text-align: left;
+            font-size: 8.5px; text-transform: uppercase; letter-spacing: 0.4px; border-bottom: 1px solid #c9ccd4;
+        }
+        .list-table td { padding: 4px 6px; font-size: 9.5px; border-bottom: 1px solid #e3e3e3; vertical-align: top; }
+        .text-right { text-align: right; }
+        .muted { color: #777; }
+        .small { font-size: 8.5px; }
+        .pass { color: #1b6e2a; font-weight: bold; }
+        .fail { color: #b3261e; font-weight: bold; }
+        .total-row td { font-weight: bold; border-top: 2px solid #1a1a2e; border-bottom: 0; font-size: 10.5px; }
+        .note { font-size: 8.5px; color: #666; margin-top: 4px; }
+        #footerContent { font-size: 8px; color: #999; text-align: center; }
+    </style>
+</head>
+<body>
+
+<div id="footerContent">
+    Vehicle history &bull; {{ car.registration | format_reg }} &bull; {{ car.make }} {{ car.model }}
+    &bull; generated {{ today.strftime('%d/%m/%Y') }} &bull; page <pdf:pagenumber> of <pdf:pagecount>
+</div>
+
+<div class="header">
+    <table width="100%">
+        <tr>
+            <td>
+                <p class="header-title">Vehicle History</p>
+                <p class="header-sub">{{ car.make }} {{ car.model }}{% if car.variant %} &middot; {{ car.variant }}{% endif %}</p>
+            </td>
+            <td width="200" style="text-align: right; vertical-align: top;">
+                <span class="reg-number">{{ car.registration | format_reg }}</span>
+            </td>
+        </tr>
+    </table>
+</div>
+
+<!-- Vehicle -->
+<div class="section">
+    <div class="section-title">Vehicle</div>
+    <table class="info-table">
+        <tr>
+            <td class="label">Make / Model</td><td>{{ car.make }} {{ car.model }}</td>
+            <td class="label">Year</td><td>{{ car.year or '—' }}</td>
+        </tr>
+        <tr>
+            <td class="label">Fuel</td><td>{{ car.fuel_type or '—' }}</td>
+            <td class="label">Engine</td><td>{{ car.engine_size or '—' }}</td>
+        </tr>
+        <tr>
+            <td class="label">Transmission</td><td>{{ car.transmission or '—' }}</td>
+            <td class="label">Colour</td><td>{{ car.color or '—' }}</td>
+        </tr>
+        {% if car.vin %}
+        <tr><td class="label">VIN</td><td colspan="3">{{ car.vin }}</td></tr>
+        {% endif %}
+    </table>
+</div>
+
+<!-- Summary -->
+{% set services = events | selectattr('event_type', 'equalto', 'Service') | list %}
+<div class="section">
+    <div class="section-title">Summary</div>
+    <table class="info-table">
+        <tr>
+            <td class="label">Current mileage</td>
+            <td>{% if car.latest_mileage %}{{ '{:,}'.format(car.latest_mileage) }} km{% else %}—{% endif %}</td>
+            <td class="label">Owned since</td>
+            <td>
+                {% if car.purchase_date %}{{ car.purchase_date.strftime('%d/%m/%Y') }}{% else %}—{% endif %}
+                {% if car.purchase_mileage %} at {{ '{:,}'.format(car.purchase_mileage) }} km{% endif %}
+            </td>
+        </tr>
+        <tr>
+            <td class="label">Last service</td>
+            <td>
+                {% if services %}{{ services[0].date.strftime('%d/%m/%Y') }}{% if services[0].mileage_at_event %} at {{ '{:,}'.format(services[0].mileage_at_event) }} km{% endif %}{% else %}—{% endif %}
+            </td>
+            <td class="label">NCT</td>
+            <td>
+                {% if nct_events %}
+                    Last test {{ nct_events[0].date.strftime('%d/%m/%Y') }}
+                    {% if nct_events[0].nct_result %}(<span class="{{ 'pass' if nct_events[0].nct_result == 'Pass' else 'fail' }}">{{ nct_events[0].nct_result }}</span>){% endif %}
+                    {% if insights.nct and insights.nct.due_date and nct_events[0].nct_result == 'Pass' %}<br>Next due {{ insights.nct.due_date.strftime('%d/%m/%Y') }}{% endif %}
+                {% else %}—{% endif %}
+            </td>
+        </tr>
+        <tr>
+            <td class="label">Records</td>
+            <td>{{ events|length }} event(s), {{ services|length }} service(s)</td>
+            {% if include_costs %}
+            <td class="label">Spent on upkeep</td>
+            <td>&euro;{{ '%.2f'|format(events | sum(attribute='total_cost')) }}</td>
+            {% else %}
+            <td class="label">Fuel economy</td>
+            <td>{% if insights.fuel and insights.fuel.avg_l_per_100km %}{{ '%.1f'|format(insights.fuel.avg_l_per_100km) }} L/100km{% else %}—{% endif %}</td>
+            {% endif %}
+        </tr>
+        {% if include_costs and insights.fuel and insights.fuel.avg_l_per_100km %}
+        <tr>
+            <td class="label">Fuel economy</td>
+            <td colspan="3">{{ '%.1f'|format(insights.fuel.avg_l_per_100km) }} L/100km over {{ insights.fuel.fill_count }} logged fill-ups</td>
+        </tr>
+        {% endif %}
+    </table>
+</div>
+
+<!-- Service history -->
+<div class="section">
+    <div class="section-title">Service &amp; Maintenance History</div>
+    {% if events %}
+    <table class="list-table" repeat="1">
+        <thead>
+            <tr>
+                <th width="11%">Date</th>
+                <th width="11%" class="text-right">Mileage</th>
+                <th width="12%">Type</th>
+                <th>Work carried out</th>
+                <th width="18%">By</th>
+                {% if include_costs %}<th width="10%" class="text-right">Cost</th>{% endif %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for e in events %}
+            <tr>
+                <td>{{ e.date.strftime('%d/%m/%Y') }}</td>
+                <td class="text-right">{% if e.mileage_at_event %}{{ '{:,}'.format(e.mileage_at_event) }} km{% else %}<span class="muted">—</span>{% endif %}</td>
+                <td>{{ e.event_type }}{% if e.event_type == 'NCT' and e.nct_result %}: <span class="{{ 'pass' if e.nct_result == 'Pass' else 'fail' }}">{{ e.nct_result }}</span>{% endif %}</td>
+                <td>
+                    <strong>{{ e.title }}</strong>
+                    {% if e.line_items %}
+                    <br><span class="small muted">
+                        {% for li in e.line_items %}{{ li.description }}{% if li.part_number %} ({{ li.part_number }}){% endif %}{% if li.quantity != 1 %} &times;{{ '%g'|format(li.quantity) }}{% endif %}{% if not loop.last %}; {% endif %}{% endfor %}
+                    </span>
+                    {% endif %}
+                    {% if e.schedule_items %}
+                    <br><span class="small muted">Covers: {{ e.schedule_items | map(attribute='name') | join(', ') }}</span>
+                    {% endif %}
+                    {% if e.expiry_date %}<br><span class="small muted">Valid until {{ e.expiry_date.strftime('%d/%m/%Y') }}</span>{% endif %}
+                    {% if e.notes %}<br><span class="small">{{ e.notes }}</span>{% endif %}
+                </td>
+                <td>
+                    {% if e.provider_type == 'ThirdParty' %}{{ e.garage_name or 'Garage' }}{% if e.invoice_number %}<br><span class="small muted">Inv. {{ e.invoice_number }}</span>{% endif %}{% else %}Owner{% endif %}
+                </td>
+                {% if include_costs %}<td class="text-right">{% if e.total_cost > 0 %}&euro;{{ '%.2f'|format(e.total_cost) }}{% else %}<span class="muted">—</span>{% endif %}</td>{% endif %}
+            </tr>
+            {% endfor %}
+            {% if include_costs %}
+            <tr class="total-row">
+                <td colspan="5" class="text-right">Total</td>
+                <td class="text-right">&euro;{{ '%.2f'|format(events | sum(attribute='total_cost')) }}</td>
+            </tr>
+            {% endif %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="muted">No events recorded.</p>
+    {% endif %}
+</div>
+
+<!-- NCT record -->
+{% if nct_events %}
+<div class="section">
+    <div class="section-title">NCT Record</div>
+    <table class="list-table">
+        <thead>
+            <tr><th width="15%">Date</th><th width="12%">Result</th><th width="15%" class="text-right">Mileage</th><th>Test centre</th><th width="20%">Certificate</th></tr>
+        </thead>
+        <tbody>
+            {% for e in nct_events %}
+            <tr>
+                <td>{{ e.date.strftime('%d/%m/%Y') }}</td>
+                <td>{% if e.nct_result %}<span class="{{ 'pass' if e.nct_result == 'Pass' else 'fail' }}">{{ e.nct_result }}</span>{% else %}—{% endif %}</td>
+                <td class="text-right">{% if e.mileage_at_event %}{{ '{:,}'.format(e.mileage_at_event) }} km{% else %}—{% endif %}</td>
+                <td>{{ e.garage_name or '—' }}</td>
+                <td>{% if e.nct_cert_filename %}{% if e.id in attached_ids %}Attached{% else %}On file{% endif %}{% else %}<span class="muted">—</span>{% endif %}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+<!-- Maintenance schedule -->
+{% if schedule %}
+<div class="section">
+    <div class="section-title">Maintenance Schedule</div>
+    <table class="list-table">
+        <thead>
+            <tr><th>Item</th><th width="20%">Interval</th><th width="24%">Last done</th><th width="24%">Next due</th></tr>
+        </thead>
+        <tbody>
+            {% for item, st in schedule %}
+            <tr>
+                <td>{{ item.name }}</td>
+                <td>
+                    {% if item.interval_km %}{{ '{:,}'.format(item.interval_km) }} km{% endif %}{% if item.interval_km and item.interval_months %} / {% endif %}{% if item.interval_months %}{{ item.interval_months }} months{% endif %}
+                </td>
+                <td>
+                    {% if st.basis_date %}{{ st.basis_date.strftime('%d/%m/%Y') }}{% endif %}{% if st.basis_mileage is not none %}{% if st.basis_date %}, {% endif %}{{ '{:,}'.format(st.basis_mileage) }} km{% endif %}
+                    {% if st.status == 'unknown' and not st.basis_date and st.basis_mileage is none %}<span class="muted">Not recorded</span>{% endif %}
+                </td>
+                <td>
+                    {% if st.due_date %}{{ st.due_date.strftime('%d/%m/%Y') }}{% endif %}{% if st.due_mileage is not none %}{% if st.due_date %}, {% endif %}{{ '{:,}'.format(st.due_mileage) }} km{% endif %}
+                    {% if st.overdue %} <span class="fail">(overdue)</span>{% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+<!-- Mileage history -->
+{% if mileage_logs %}
+<div class="section">
+    <div class="section-title">Mileage History</div>
+    <table class="list-table" repeat="1">
+        <thead>
+            <tr><th width="18%">Date</th><th width="18%" class="text-right">Odometer</th><th>Source</th></tr>
+        </thead>
+        <tbody>
+            {% for log in mileage_logs %}
+            <tr>
+                <td>{{ log.date.strftime('%d/%m/%Y') }}</td>
+                <td class="text-right">{{ '{:,}'.format(log.mileage) }} km</td>
+                <td class="muted">
+                    {% if log.is_purchase_mileage %}At purchase{% elif log.source_event_id %}Service record{% elif log.source_fuel_id %}Fill-up{% else %}{{ log.notes or 'Reading' }}{% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+{% if attachments %}
+<div class="section">
+    <div class="section-title">Attached Documents</div>
+    <table class="list-table">
+        <tbody>
+            {% for _e, label, _p in attachments %}
+            <tr><td>{{ loop.index }}. {{ label }}</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <p class="note">The original documents follow this report, in the order listed.</p>
+</div>
+{% endif %}
+
+<p class="note">Compiled from the owner's records on {{ today.strftime('%d/%m/%Y') }}.</p>
+
+</body>
+</html>

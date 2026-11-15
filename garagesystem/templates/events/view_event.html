@@ -151,6 +151,28 @@
                         </tr>
                         {% endif %}
                         {% endif %}
+                        {% if event.expiry_date %}
+                        <tr>
+                            <th class="ps-3 text-muted">Valid until</th>
+                            <td>{{ event.expiry_date.strftime('%d/%m/%Y') }}</td>
+                        </tr>
+                        {% endif %}
+                        {% if event.schedule_items %}
+                        <tr>
+                            <th class="ps-3 text-muted">Schedule items</th>
+                            <td class="small">
+                                {% for si in event.schedule_items %}
+                                <a href="{{ url_for('upkeep.edit_schedule', car_id=car.id, item_id=si.id) }}" class="text-decoration-none">{{ si.name }}</a>{% if not loop.last %}, {% endif %}
+                                {% endfor %}
+                            </td>
+                        </tr>
+                        {% endif %}
+                        {% for t in tasks %}
+                        <tr>
+                            <th class="ps-3 text-muted">Whiteboard</th>
+                            <td class="small"><a href="{{ url_for('board.view_task', task_id=t.id) }}" class="text-decoration-none"><i class="bi bi-easel me-1"></i>{{ t.title }}</a></td>
+                        </tr>
+                        {% endfor %}
                     </tbody>
                 </table>
                 {% if event.notes %}
@@ -295,7 +317,10 @@
                     <tbody>
                         {% for item in event.line_items %}
                         <tr>
-                            <td>{{ item.description }}</td>
+                            <td>
+                                {{ item.description }}
+                                {% if item.stock_item %}<i class="bi bi-box-seam text-success ms-1" title="Taken from the shelf"></i>{% endif %}
+                            </td>
                             <td>
                                 <span class="badge bg-{{ item_type_badges.get(item.item_type, 'secondary') }}">
                                     {{ item.item_type }}
@@ -311,7 +336,7 @@
                             <td>
                                 <form method="POST"
                                       action="{{ url_for('events.delete_line_item', event_id=event.id, item_id=item.id) }}"
-                                      onsubmit="return confirm('Remove this item?')">
+                                      onsubmit="return confirm('Remove this item?{% if item.stock_item %} It goes back on the shelf.{% endif %}')">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-1 border-0"
                                             title="Remove item">
@@ -347,6 +372,15 @@
             <div class="card-body">
                 <form method="POST" action="{{ url_for('events.add_line_item', event_id=event.id) }}">
                     {{ form.hidden_tag() }}
+                    {% if form.stock_item_id.choices|length > 1 %}
+                    <div class="row g-2 mb-2">
+                        <div class="col-12 col-md-7">
+                            {{ form.stock_item_id.label(class="form-label form-label-sm mb-1") }}
+                            {{ form.stock_item_id(class="form-select form-select-sm") }}
+                        </div>
+                        <div class="col-12 col-md-5 form-text align-self-end">Fills in the details and takes the quantity off the shelf.</div>
+                    </div>
+                    {% endif %}
                     <div class="row g-2 align-items-end mb-2">
                         <div class="col-12 col-md-5">
                             {{ form.description.label(class="form-label form-label-sm mb-1") }}
@@ -425,5 +459,25 @@
         {% endif %}
     </div>
 </div>
+
+{% if stock_data %}
+<script>
+(function () {
+    var stock = {{ stock_data | tojson }};
+    var select = document.getElementById('{{ form.stock_item_id.id }}');
+    if (!select) return;
+    var typeFor = { 'Oil': 'Consumables', 'Fluids': 'Consumables', 'Fixings': 'Consumables' };
+    select.addEventListener('change', function () {
+        var s = stock[select.value];
+        if (!s) return;
+        document.getElementById('{{ form.description.id }}').value = s.name;
+        document.getElementById('{{ form.part_number.id }}').value = s.part_number;
+        document.getElementById('{{ form.item_type.id }}').value = typeFor[s.category] || 'Parts';
+        if (s.unit_cost !== null) document.getElementById('{{ form.unit_cost.id }}').value = s.unit_cost.toFixed(2);
+        document.getElementById('{{ form.shipping_cost.id }}').value = '0.00';
+    });
+})();
+</script>
+{% endif %}
 
 {% endblock content %}

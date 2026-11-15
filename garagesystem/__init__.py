@@ -83,6 +83,16 @@ def create_app():
             return f"{m.group(1)}-{m.group(2)}-{m.group(3)}"
         return reg
 
+    @app.template_filter('short_date')
+    def short_date(d, today=None):
+        """'5 Mar', or '5 Mar 2027' outside the current year. Portable (no %-d)."""
+        if not d:
+            return ''
+        from datetime import date
+        year = (today or date.today()).year
+        text = f"{d.day} {d.strftime('%b')}"
+        return text if d.year == year else f"{text} {d.year}"
+
     @app.context_processor
     def inject_globals():
         from datetime import datetime
@@ -98,11 +108,17 @@ def create_app():
     from garagesystem.events.routes import events
     from garagesystem.users.routes import users
     from garagesystem.errors.handlers import errors
+    from garagesystem.board.routes import board
+    from garagesystem.shelf.routes import shelf
+    from garagesystem.upkeep.routes import upkeep
 
     app.register_blueprint(main)
     app.register_blueprint(cars)
     app.register_blueprint(events)
     app.register_blueprint(users)
     app.register_blueprint(errors)
+    app.register_blueprint(board)
+    app.register_blueprint(shelf)
+    app.register_blueprint(upkeep)
 
     return app

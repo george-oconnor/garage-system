@@ -10,7 +10,7 @@
 
 <!-- Stats -->
 <div class="row g-3 mb-4">
-    <div class="col-sm-4">
+    <div class="col-sm-6 col-lg-3">
         <div class="card stat-card primary h-100">
             <div class="card-body d-flex align-items-center">
                 <div class="me-3 fs-1 text-primary opacity-50"><i class="bi bi-car-front"></i></div>
@@ -21,7 +21,7 @@
             </div>
         </div>
     </div>
-    <div class="col-sm-4">
+    <div class="col-sm-6 col-lg-3">
         <div class="card stat-card success h-100">
             <div class="card-body d-flex align-items-center">
                 <div class="me-3 fs-1 text-success opacity-50"><i class="bi bi-clipboard-check"></i></div>
@@ -32,7 +32,25 @@
             </div>
         </div>
     </div>
-    <div class="col-sm-4">
+    <div class="col-sm-6 col-lg-3">
+        <a href="{{ url_for('board.view_board') }}" class="text-decoration-none text-reset">
+        <div class="card stat-card danger h-100 car-card">
+            <div class="card-body d-flex align-items-center">
+                <div class="me-3 fs-1 text-danger opacity-50"><i class="bi bi-easel"></i></div>
+                <div>
+                    <div class="fs-2 fw-bold">{{ board_summary.open }}</div>
+                    <div class="text-muted small text-uppercase">Jobs on the board</div>
+                    <div class="small">
+                        {% if board_summary.overdue %}<span class="text-danger fw-semibold">{{ board_summary.overdue }} overdue</span>{% endif %}
+                        {% if board_summary.overdue and board_summary.parts %} · {% endif %}
+                        {% if board_summary.parts %}<span class="text-muted">{{ board_summary.parts }} waiting on parts</span>{% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        </a>
+    </div>
+    <div class="col-sm-6 col-lg-3">
         <div class="card stat-card warning h-100">
             <div class="card-body d-flex align-items-center">
                 <div class="me-3 fs-1 text-warning opacity-50"><i class="bi bi-currency-euro"></i></div>
@@ -44,6 +62,39 @@
         </div>
     </div>
 </div>
+
+{% if pressing %}
+<!-- Whiteboard: most pressing -->
+<div class="d-flex justify-content-between align-items-center">
+    <h5 class="section-heading flex-grow-1"><i class="bi bi-easel me-2"></i>Next Up</h5>
+</div>
+<div class="card mb-4">
+    <ul class="list-group list-group-flush">
+        {% for t in pressing %}
+        {% set u = urgency.get(t.id) %}
+        <li class="list-group-item d-flex justify-content-between align-items-center gap-2">
+            <div>
+                <a href="{{ url_for('board.view_task', task_id=t.id) }}" class="text-decoration-none text-dark fw-semibold">{{ t.title }}</a>
+                {% if t.car %}<span class="reg-plate reg-plate-sm ms-2">{{ t.car.registration | format_reg }}</span>{% endif %}
+                <div class="small {{ 'text-danger' if u == 'overdue' else ('text-warning-emphasis' if u == 'soon' else 'text-muted') }}">
+                    {% if t.due_date %}by {{ t.due_date.strftime('%d/%m/%Y') }}{% endif %}
+                    {% if t.due_date and t.due_mileage %} or {% endif %}
+                    {% if t.due_mileage %}at {{ '{:,}'.format(t.due_mileage) }} km{% endif %}
+                    {% if not t.due_date and not t.due_mileage %}{{ {'todo': 'To do', 'parts': 'Waiting on parts', 'doing': 'In progress'}[t.status] }}{% endif %}
+                </div>
+            </div>
+            {% if u == 'overdue' %}<span class="badge bg-danger">Overdue</span>{% elif u == 'soon' %}<span class="badge bg-warning text-dark">Soon</span>{% endif %}
+        </li>
+        {% endfor %}
+    </ul>
+    <div class="card-footer bg-white text-end">
+        {% if board_summary.low_stock %}
+        <a href="{{ url_for('shelf.view_shelf') }}" class="small text-danger text-decoration-none float-start"><i class="bi bi-box-seam me-1"></i>{{ board_summary.low_stock }} shelf item(s) low</a>
+        {% endif %}
+        <a href="{{ url_for('board.view_board') }}" class="small text-decoration-none">Open the whiteboard <i class="bi bi-arrow-right"></i></a>
+    </div>
+</div>
+{% endif %}
 
 {% if cars %}
 <!-- Cars Grid -->

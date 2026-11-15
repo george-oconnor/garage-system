@@ -53,14 +53,198 @@ def add_months(d, months):
     return _date(year, month, day)
 
 
+# A due item is "due soon" (and gets a whiteboard card) within this window.
+DUE_SOON_DAYS = 30
+DUE_SOON_KM = 1000
+
+
+def project_due(basis_date, basis_mileage, interval_months, interval_km,
+                latest_date, latest_mileage, annual_mileage, today):
+    """Work out when something done on `basis_date` at `basis_mileage` is next
+    due, given a time and/or distance interval (whichever comes first).
+
+    The distance limit is turned into a date using `annual_mileage`, so an
+    item due "every 15,000 km" on a car doing 30,000 km a year comes due in
+    about six months. Returns a dict with due_date, due_mileage, overdue,
+    due_soon, days_left and km_left (each may be None).
+    """
+    due_by_date = add_months(basis_date, interval_months) if (basis_date and interval_months) else None
+
+    due_mileage = None
+    if basis_mileage is not None and interval_km:
+        due_mileage = basis_mileage + interval_km
+
+    due_by_mileage_date = None
+    if due_mileage is not None and latest_mileage is not None and latest_date is not None and annual_mileage:
+        days_needed = (due_mileage - latest_mileage) / annual_mileage * 365.25
+        due_by_mileage_date = latest_date + timedelta(days=days_needed)
+
+    candidates = [d for d in (due_by_date, due_by_mileage_date) if d is not None]
+    due_date = min(candidates) if candidates else None
+
+    km_left = None
+    if due_mileage is not None and latest_mileage is not None:
+        km_left = due_mileage - latest_mileage
+    days_left = (due_date - today).days if due_date else None
+
+    overdue = bool(due_date and due_date < today) or bool(km_left is not None and km_left <= 0)
+    due_soon = overdue or bool(days_left is not None and days_left <= DUE_SOON_DAYS) or bool(
+        km_left is not None and km_left <= DUE_SOON_KM)
+
+    return {
+        'due_date': due_date,
+        'due_mileage': due_mileage,
+        'overdue': overdue,
+        'due_soon': due_soon,
+        'days_left': days_left,
+        'km_left': km_left,
+    }
+
+
+def latest_reading(car):
+    """(date, mileage) of the car's most recent odometer reading, or (None, None)."""
+    anchors = sorted(((log.date, log.mileage) for log in car.mileage_logs), key=lambda a: a[0])
+    return anchors[-1] if anchors else (None, None)
+
+
+def schedule_item_status(item, car, annual_mileage=None, today=None):
+    """Where a MaintenanceSchedule item stands.
+
+    The basis is the most recent past event linked to the item, or the
+    item's own "last done" date/mileage if that is newer or there's no event.
+    Returns a dict: status ('overdue' | 'due_soon' | 'ok' | 'unknown'),
+    basis_date, basis_mileage, basis_event, plus the project_due() keys.
+    """
+    today = today or _date.today()
+    anchors = [(log.date, log.mileage) for log in car.mileage_logs]
+
+    basis_date, basis_mileage, basis_event = item.last_done_date, item.last_done_mileage, None
+    past_events = sorted((e for e in item.events if e.date <= today), key=lambda e: e.date)
+    if past_events:
+        last = past_events[-1]
+        if basis_date is None or last.date >= basis_date:
+            basis_event = last
+            basis_date = last.date
+            basis_mileage = last.mileage_at_event
+            if basis_mileage is None:
+                basis_mileage = estimate_mileage_at_date(anchors, last.date)
+
+    result = {'basis_date': basis_date, 'basis_mileage': basis_mileage, 'basis_event': basis_event}
+    if basis_date is None and basis_mileage is None:
+        result.update({'status': 'unknown', 'due_date': None, 'due_mileage': None, 'overdue': False,
+                       'due_soon': False, 'days_left': None, 'km_left': None})
+        return result
+
+    latest_date, latest_mileage = latest_reading(car)
+    if latest_mileage is None:
+        latest_mileage = car.latest_mileage
+    due = project_due(basis_date, basis_mileage, item.interval_months, item.interval_km,
+                      latest_date, latest_mileage, annual_mileage, today)
+    result.update(due)
+    if not (due['due_date'] or due['due_mileage'] is not None):
+        result['status'] = 'unknown'
+    elif due['overdue']:
+        result['status'] = 'overdue'
+    elif due['due_soon']:
+        result['status'] = 'due_soon'
+    else:
+        result['status'] = 'ok'
+    return result
+
+
+def renewal_status(car, event_type, today=None):
+    """Motor tax / insurance status from the latest event of that type with an
+    expiry date. None if there's nothing on file."""
+    today = today or _date.today()
+    events = [e for e in car.service_events if e.event_type == event_type and e.expiry_date]
+    if not events:
+        return None
+    latest = max(events, key=lambda e: (e.expiry_date, e.date))
+    days_left = (latest.expiry_date - today).days
+    return {
+        'expiry_date': latest.expiry_date,
+        'days_left': days_left,
+        'expired': days_left < 0,
+        'due_soon': days_left <= DUE_SOON_DAYS,
+        'event': latest,
+    }
+
+
+def compute_fuel_stats(fuel_logs):
+    """Fuel economy and cost, measured full tank to full tank.
+
+    Litres from partial fills are added to the next full fill, and the
+    distance is the odometer difference between the two full fills. A
+    fill-up without an odometer reading breaks the chain, since we can't
+    tell how far the car went on it. Returns a dict with:
+    - avg_l_per_100km, cost_per_km: over all measured stretches
+    - last_l_per_100km: the most recent stretch
+    - per_log: {fuel_log.id: l_per_100km} for the fills that close a stretch
+    - total_spend, total_litres, fill_count
+    """
+    logs = sorted(fuel_logs, key=lambda f: (f.date, f.mileage or 0, f.id or 0))
+    stats = {
+        'avg_l_per_100km': None, 'last_l_per_100km': None, 'cost_per_km': None,
+        'avg_price_per_litre': None, 'per_log': {},
+        'total_spend': round(sum(f.total_cost or 0 for f in logs), 2),
+        'total_litres': round(sum(f.litres or 0 for f in logs), 2),
+        'fill_count': len(logs),
+    }
+    priced = [f for f in logs if f.total_cost and f.litres]
+    if priced:
+        stats['avg_price_per_litre'] = round(
+            sum(f.total_cost for f in priced) / sum(f.litres for f in priced), 3)
+
+    seg_km = seg_litres = 0.0
+    seg_cost = 0.0
+    cost_known = True
+    last_full_mileage = None
+    acc_litres = acc_cost = 0.0
+    acc_cost_known = True
+    for f in logs:
+        if f.mileage is None:
+            last_full_mileage = None
+            continue
+        if last_full_mileage is None:
+            if f.full_tank:
+                last_full_mileage = f.mileage
+                acc_litres = acc_cost = 0.0
+                acc_cost_known = True
+            continue
+        acc_litres += f.litres or 0
+        if f.total_cost is None:
+            acc_cost_known = False
+        acc_cost += f.total_cost or 0
+        if f.full_tank:
+            distance = f.mileage - last_full_mileage
+            if distance > 0 and acc_litres > 0:
+                economy = round(acc_litres / distance * 100, 2)
+                stats['per_log'][f.id] = economy
+                stats['last_l_per_100km'] = economy
+                seg_km += distance
+                seg_litres += acc_litres
+                seg_cost += acc_cost
+                cost_known = cost_known and acc_cost_known
+            last_full_mileage = f.mileage
+            acc_litres = acc_cost = 0.0
+            acc_cost_known = True
+
+    if seg_km > 0:
+        stats['avg_l_per_100km'] = round(seg_litres / seg_km * 100, 2)
+        if cost_known and seg_cost > 0:
+            stats['cost_per_km'] = round(seg_cost / seg_km, 3)
+    return stats
+
+
 def compute_car_insights(car, today=None):
     """Derive the stats shown on the Insights panel from the car's existing history.
 
     Nothing here is persisted — it's recomputed on every page load so it always
     reflects the latest mileage logs and events. Returns a dict with keys:
     'annual_mileage', 'last_12_months_mileage', 'next_service', 'nct',
-    'cost_per_km', 'avg_cost_per_event' (any of which may be None if there
-    isn't enough data to derive them).
+    'motor_tax', 'insurance', 'fuel', 'cost_per_km', 'fuel_cost_per_km',
+    'total_cost_per_km', 'avg_cost_per_event' (any of which may be None if
+    there isn't enough data to derive them).
     """
     today = today or _date.today()
     anchors = sorted(((log.date, log.mileage) for log in car.mileage_logs), key=lambda a: a[0])
@@ -70,7 +254,12 @@ def compute_car_insights(car, today=None):
         'last_12_months_mileage': None,
         'next_service': None,
         'nct': None,
+        'motor_tax': None,
+        'insurance': None,
+        'fuel': None,
         'cost_per_km': None,
+        'fuel_cost_per_km': None,
+        'total_cost_per_km': None,
         'avg_cost_per_event': None,
     }
 
@@ -105,27 +294,15 @@ def compute_car_insights(car, today=None):
         if baseline_mileage is None:
             baseline_mileage = estimate_mileage_at_date(anchors, last_service.date)
 
-        due_by_date = add_months(last_service.date, car.service_interval_months) if car.service_interval_months else None
-
-        due_mileage = None
-        if baseline_mileage is not None and car.service_interval_km:
-            due_mileage = baseline_mileage + car.service_interval_km
-
-        due_by_mileage_date = None
-        if due_mileage is not None and latest_mileage is not None and latest_date is not None and insights['annual_mileage']:
-            days_needed = (due_mileage - latest_mileage) / insights['annual_mileage'] * 365.25
-            due_by_mileage_date = latest_date + timedelta(days=days_needed)
-
-        candidates = [d for d in (due_by_date, due_by_mileage_date) if d is not None]
-        next_due_date = min(candidates) if candidates else None
-        overdue = bool(next_due_date and next_due_date < today) or bool(
-            due_mileage is not None and latest_mileage is not None and latest_mileage >= due_mileage
+        due = project_due(
+            last_service.date, baseline_mileage,
+            car.service_interval_months, car.service_interval_km,
+            latest_date, latest_mileage, insights['annual_mileage'], today,
         )
-
         insights['next_service'] = {
-            'due_date': next_due_date,
-            'due_mileage': due_mileage,
-            'overdue': overdue,
+            'due_date': due['due_date'],
+            'due_mileage': due['due_mileage'],
+            'overdue': due['overdue'],
             'basis_date': last_service.date,
         }
 
@@ -186,6 +363,18 @@ def compute_car_insights(car, today=None):
         insights['cost_per_km'] = round(total_spend / (latest_mileage - baseline_mileage), 3)
     if car.event_count:
         insights['avg_cost_per_event'] = round(total_spend / car.event_count, 2)
+
+    # --- Renewals: motor tax and insurance expiry from Tax/Insurance events ---
+    insights['motor_tax'] = renewal_status(car, 'Tax', today)
+    insights['insurance'] = renewal_status(car, 'Insurance', today)
+
+    # --- Fuel: economy, and fuel's share of the running cost per km ---
+    if car.fuel_logs:
+        insights['fuel'] = compute_fuel_stats(car.fuel_logs)
+        insights['fuel_cost_per_km'] = insights['fuel']['cost_per_km']
+    if insights['cost_per_km'] is not None or insights['fuel_cost_per_km'] is not None:
+        insights['total_cost_per_km'] = round(
+            (insights['cost_per_km'] or 0) + (insights['fuel_cost_per_km'] or 0), 3)
 
     return insights
 

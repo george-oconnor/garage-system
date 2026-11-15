@@ -1,0 +1,46 @@
+{# Stock item fields. Expects `form` (StockItemForm). #}
+<div class="row g-3">
+    <div class="col-md-8">
+        {{ form.name.label(class="form-label fw-semibold") }}
+        {{ form.name(class="form-control", placeholder="e.g. Castrol Edge 5W-30 (5L), H7 bulb, Oil filter W712/95") }}
+    </div>
+    <div class="col-md-4">
+        {{ form.category.label(class="form-label") }}
+        {{ form.category(class="form-select") }}
+    </div>
+    <div class="col-6 col-md-4">
+        {{ form.quantity.label(class="form-label") }}
+        <div class="input-group">
+            {{ form.quantity(class="form-control", step="0.01", min="0") }}
+            {{ form.unit(class="form-select", style="max-width:85px;") }}
+        </div>
+    </div>
+    <div class="col-6 col-md-4">
+        {{ form.min_quantity.label(class="form-label") }}
+        {{ form.min_quantity(class="form-control", step="0.01", min="0", placeholder="Optional") }}
+        <div class="form-text">A restock card goes on the whiteboard at or below this.</div>
+    </div>
+    <div class="col-6 col-md-4">
+        {{ form.unit_cost.label(class="form-label") }}
+        <div class="input-group">
+            <span class="input-group-text">€</span>
+            {{ form.unit_cost(class="form-control", step="0.01", min="0", placeholder="Optional") }}
+        </div>
+    </div>
+    <div class="col-6 col-md-4">
+        {{ form.part_number.label(class="form-label") }}
+        {{ form.part_number(class="form-control", placeholder="Optional") }}
+    </div>
+    <div class="col-6 col-md-4">
+        {{ form.location.label(class="form-label") }}
+        {{ form.location(class="form-control", placeholder="e.g. Top shelf, blue box") }}
+    </div>
+    <div class="col-6 col-md-4">
+        {{ form.fits.label(class="form-label") }}
+        {{ form.fits(class="form-control", placeholder="e.g. Golf, Octavia") }}
+    </div>
+    <div class="col-12">
+        {{ form.notes.label(class="form-label") }}
+        {{ form.notes(class="form-control", placeholder="Optional") }}
+    </div>
+</div>

@@ -1,0 +1,199 @@
+{% extends "layout.html" %}
+{% block head %}
+{% include 'board/_fonts.html' %}
+<meta name="csrf-token" content="{{ csrf_token() }}">
+{% endblock head %}
+{% block content %}
+
+{% set column_defs = [
+    ('todo', 'To do', 'black', 'Nothing to do. Nice.'),
+    ('parts', 'Waiting on parts', 'red', 'No parts on order'),
+    ('doing', 'In progress', 'blue', 'Nothing on the go'),
+    ('done', 'Done', 'green', 'Nothing finished lately'),
+] %}
+
+<div class="wb-frame">
+    <span class="wb-corner tl"></span><span class="wb-corner tr"></span>
+    <span class="wb-corner bl"></span><span class="wb-corner br"></span>
+
+    <div class="wb-board">
+        <div class="wb-header">
+            <h1 class="wb-title">Garage jobs</h1>
+            <div class="wb-date">{{ today.strftime('%a') }} {{ today | short_date }}</div>
+        </div>
+
+        <div class="wb-toolbar">
+            {% if cars %}
+            <span class="wb-toolbar-label">Show:</span>
+            <button type="button" class="wb-chip active" data-filter="all">All</button>
+            {% for car in cars %}
+            <button type="button" class="wb-chip" data-filter="{{ car.id }}"
+                    title="{{ car.make }} {{ car.model }}">{{ car.registration | format_reg }}</button>
+            {% endfor %}
+            <button type="button" class="wb-chip" data-filter="0">Garage</button>
+            {% endif %}
+            <span class="wb-tally">
+                {{ columns.todo|length + columns.parts|length + columns.doing|length }} open
+                {% if overdue_count %}· <span class="wb-circled">{{ overdue_count }}</span> overdue{% endif %}
+            </span>
+        </div>
+
+        <div class="wb-columns">
+            {% for key, label, ink, empty_text in column_defs %}
+            <section class="wb-col{% if not columns[key] %} is-empty{% endif %}" aria-label="{{ label }}">
+                <h2 class="wb-col-title ink-{{ ink }}">{{ label }} <span class="wb-count">({{ columns[key]|length }})</span></h2>
+                <div class="wb-cards" data-status="{{ key }}">
+                    {% for t in columns[key] %}{% include 'board/_card.html' %}{% endfor %}
+                </div>
+                <p class="wb-empty">{{ empty_text }}</p>
+                {% if key == 'todo' %}
+                <button type="button" class="wb-add" data-bs-toggle="modal" data-bs-target="#addTaskModal">
+                    + add a job
+                </button>
+                {% endif %}
+            </section>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<div class="wb-tray">
+    <div class="wb-tray-items">
+        <span class="wb-marker m-black" aria-hidden="true"></span>
+        <span class="wb-marker m-blue" aria-hidden="true"></span>
+        <span class="wb-marker m-red" aria-hidden="true"></span>
+        <span class="wb-marker m-green" aria-hidden="true"></span>
+        <form method="POST" action="{{ url_for('board.wipe_done') }}" class="wb-eraser-form"
+              onsubmit="return confirm('Wipe all finished cards off the board?')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="wb-eraser" title="Wipe the Done column">
+                <span class="wb-eraser-label">wipe done</span>
+            </button>
+        </form>
+    </div>
+</div>
+
+<p class="text-muted small mt-4 mb-0">
+    <i class="bi bi-info-circle me-1"></i>Drag cards between columns. Reminders for servicing, NCT, motor tax,
+    insurance, maintenance schedule items and low shelf stock appear here by themselves when they're due within
+    30 days or 1,000 km. Done cards stay up for two weeks.
+</p>
+
+<!-- Add job -->
+<div class="modal fade" id="addTaskModal" tabindex="-1" aria-labelledby="addTaskModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('board.add_task') }}">
+                {{ form.hidden_tag() }}
+                <div class="modal-header">
+                    <h5 class="modal-title wb-marker-heading" id="addTaskModalLabel">New job</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    {% include 'board/_task_fields.html' %}
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Stick it on the board</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Offer to log a finished job -->
+<div class="modal fade" id="logModal" tabindex="-1" aria-labelledby="logModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title wb-marker-heading" id="logModalLabel">Nice one!</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                Add it to the car's service history? The event form opens filled in from the card, and any parts
+                on the card become line items.
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">No thanks</button>
+                <a href="#" class="btn btn-primary" id="logModalGo"><i class="bi bi-journal-plus me-1"></i>Log service event</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+<script>
+(function () {
+    var csrf = document.querySelector('meta[name="csrf-token"]').content;
+    var moveUrl = {{ url_for('board.move_task') | tojson }};
+    var lists = document.querySelectorAll('.wb-cards');
+
+    function visibleNotes(list) {
+        return Array.prototype.filter.call(list.children, function (n) { return n.style.display !== 'none'; });
+    }
+
+    function refreshColumns() {
+        lists.forEach(function (list) {
+            var col = list.closest('.wb-col');
+            var count = list.children.length;
+            col.querySelector('.wb-count').textContent = '(' + count + ')';
+            col.classList.toggle('is-empty', visibleNotes(list).length === 0);
+        });
+    }
+
+    function showError() {
+        alert('Couldn\'t move that card. Reload the page and try again.');
+    }
+
+    if (typeof Sortable !== 'undefined') {
+        lists.forEach(function (list) {
+            Sortable.create(list, {
+                group: 'board',
+                animation: 150,
+                delay: 180,
+                delayOnTouchOnly: true,
+                onEnd: function (evt) {
+                    if (evt.from === evt.to && evt.oldIndex === evt.newIndex) return;
+                    refreshColumns();
+                    var note = evt.item;
+                    var status = evt.to.dataset.status;
+                    var order = Array.prototype.map.call(evt.to.children, function (n) { return n.dataset.id; });
+                    note.classList.toggle('is-done', status === 'done');
+                    fetch(moveUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
+                        body: JSON.stringify({ id: Number(note.dataset.id), status: status, order: order })
+                    }).then(function (r) { return r.json(); }).then(function (data) {
+                        if (!data.ok) { showError(); return; }
+                        if (data.can_log) {
+                            document.getElementById('logModalGo').href = data.log_url;
+                            bootstrap.Modal.getOrCreateInstance(document.getElementById('logModal')).show();
+                        }
+                    }).catch(showError);
+                }
+            });
+        });
+    }
+
+    // Car filter, remembered between visits
+    var chips = document.querySelectorAll('.wb-chip[data-filter]');
+    function applyFilter(value) {
+        chips.forEach(function (c) { c.classList.toggle('active', c.dataset.filter === value); });
+        document.querySelectorAll('.wb-note').forEach(function (n) {
+            n.style.display = (value === 'all' || n.dataset.car === value) ? '' : 'none';
+        });
+        refreshColumns();
+        try { localStorage.setItem('wb-filter', value); } catch (e) {}
+    }
+    chips.forEach(function (c) { c.addEventListener('click', function () { applyFilter(c.dataset.filter); }); });
+    var saved = null;
+    try { saved = localStorage.getItem('wb-filter'); } catch (e) {}
+    if (saved && document.querySelector('.wb-chip[data-filter="' + saved + '"]')) applyFilter(saved);
+
+    {% if request.args.get('add') %}
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('addTaskModal')).show();
+    {% endif %}
+})();
+</script>
+
+{% endblock content %}

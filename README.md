@@ -33,6 +33,35 @@ database at `instance/garage.db` and a development secret key.
 | `VEHICLEDATAGLOBAL_API_KEY`, `_ENDPOINT`, `_PACKAGE` | VehicleDataGlobal lookup (optional) |
 | `MSGRAPH_TENANT_ID`, `_CLIENT_ID`, `_CLIENT_SECRET`, `MSGRAPH_SENDER` | Password-reset emails via Microsoft Graph (optional) |
 
+## Features beyond the basics
+
+- **Whiteboard** (`/board`): a drag-and-drop board of garage jobs (To do, Waiting on
+  parts, In progress, Done). Reminder cards are added automatically when the next
+  service, the NCT, motor tax, insurance or a maintenance schedule item is due
+  within 30 days or 1,000 km, or when shelf stock runs low (`garagesystem/board/utils.py`).
+  A finished card can be logged as a service event, prefilled from the card, with its
+  parts turned into line items.
+- **Maintenance schedule** (per car): items with their own km and/or month interval.
+  Tick an item on an event to reset it.
+- **Motor tax and insurance renewals**: Tax and Insurance events have a "valid until"
+  date, shown on the car's Insights panel.
+- **Fuel log** (per car): fill-ups give L/100km (full tank to full tank) and fuel's
+  share of the running cost per km. Odometer readings also go into the mileage log.
+- **Full history PDF** (car page, **History PDF**): every event, NCT record,
+  schedule and mileage history, with the uploaded NCT certificates (and optionally
+  invoices) appended.
+- **Shelf** (`/shelf`): parts and consumables in stock. Pick one when adding a line
+  item and its quantity is taken off the shelf. Removing the line item puts it back.
+
+## Tests
+
+```bash
+venv/bin/pip install pytest
+venv/bin/python -m pytest
+```
+
+Tests run against an in-memory SQLite database and don't touch `instance/`.
+
 ## Database migrations
 
 Schema changes are managed with Flask-Migrate (Alembic), and the migration

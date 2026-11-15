@@ -25,6 +25,7 @@
 
     <!-- Custom CSS -->
     <link rel="stylesheet" type="text/css" href="/static/main.css">
+    {% block head %}{% endblock head %}
 </head>
 <body>
 
@@ -47,9 +48,21 @@
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link {% if request.blueprint == 'cars' %}active{% endif %}"
+                    <a class="nav-link {% if request.blueprint in ('cars', 'upkeep') %}active{% endif %}"
                        href="{{ url_for('cars.cars_list') }}">
                         <i class="bi bi-car-front me-1"></i>My Cars
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if request.blueprint == 'board' %}active{% endif %}"
+                       href="{{ url_for('board.view_board') }}">
+                        <i class="bi bi-easel me-1"></i>Whiteboard
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if request.blueprint == 'shelf' %}active{% endif %}"
+                       href="{{ url_for('shelf.view_shelf') }}">
+                        <i class="bi bi-box-seam me-1"></i>Shelf
                     </a>
                 </li>
                 {% endif %}

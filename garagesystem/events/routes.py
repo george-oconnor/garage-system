@@ -4,7 +4,9 @@ from datetime import datetime
 import os, uuid
 
 from garagesystem import db
-from garagesystem.models import Car, ServiceEvent, EventLineItem, MileageLog
+from garagesystem.models import (
+    Car, ServiceEvent, EventLineItem, MileageLog, MaintenanceSchedule, StockItem, Task,
+)
 from garagesystem.events.forms import AddEventForm, EditEventForm, AddLineItemForm
 from garagesystem.events.utils import generate_event_pdf
 from garagesystem.cars.utils import convert_mileage_to_km
@@ -110,11 +112,95 @@ def _sync_mileage_log(car, event):
     ))
 
 
+RENEWAL_TYPES = ('Tax', 'Insurance')
+
+
+def _schedule_choices(car):
+    return [(i.id, i.name) for i in car.schedule_items]
+
+
+def _set_schedule_items(event, car, ids):
+    wanted = set(ids or [])
+    event.schedule_items = [i for i in car.schedule_items if i.id in wanted]
+
+
+def _stock_choices():
+    items = StockItem.query.order_by(StockItem.category, StockItem.name).all()
+    return [(0, '— Not from the shelf —')] + [
+        (s.id, f'{s.name} · {s.quantity:g} {s.unit} left') for s in items
+    ]
+
+
+def _take_from_stock(stock, quantity):
+    """Deduct from the shelf. Returns False (and changes nothing) if there isn't enough."""
+    if stock.quantity + 1e-9 < quantity:
+        return False
+    stock.quantity = round(stock.quantity - quantity, 3)
+    return True
+
+
+def _return_stock(item):
+    """Put a removed line item's quantity back on the shelf."""
+    if item.stock_item_id:
+        stock = db.session.get(StockItem, item.stock_item_id)
+        if stock:
+            stock.quantity = round(stock.quantity + item.quantity, 3)
+
+
+def _complete_task_with_event(task, event):
+    """Close a whiteboard card that's been logged as this event, turning its
+    parts list into line items."""
+    task.status = 'done'
+    task.completed_at = task.completed_at or datetime.utcnow()
+    task.event_id = event.id
+    if event.event_type == 'NCT' or event.uses_invoice or event.total_cost_override is not None:
+        return []
+    short = []
+    for part in task.parts:
+        item = EventLineItem(
+            event_id=event.id,
+            description=part.description,
+            item_type='Parts',
+            part_number=part.part_number,
+            quantity=part.quantity,
+            unit_cost=part.unit_cost or 0,
+        )
+        stock = part.stock_item
+        if stock:
+            if item.unit_cost == 0 and stock.unit_cost:
+                item.unit_cost = stock.unit_cost
+            if _take_from_stock(stock, part.quantity):
+                item.stock_item_id = stock.id
+            else:
+                short.append(stock.name)
+        db.session.add(item)
+    return short
+
+
 @events.route('/cars/<int:car_id>/events/new', methods=['GET', 'POST'])
 @login_required
 def add_event(car_id):
+    from garagesystem.board.utils import SOURCE_EVENT_TYPES
     car = Car.query.get_or_404(car_id)
     form = AddEventForm()
+    form.schedule_items.choices = _schedule_choices(car)
+
+    # Logging a finished whiteboard card: prefill from the card.
+    task = None
+    task_id = request.args.get('task', type=int)
+    if task_id:
+        task = db.session.get(Task, task_id)
+        if task is None or task.car_id != car.id:
+            task = None
+    if task and request.method == 'GET':
+        form.title.data = task.title
+        form.event_type.data = SOURCE_EVENT_TYPES.get(task.source, 'Maintenance')
+        form.notes.data = task.notes
+        if task.schedule_id:
+            form.schedule_items.data = [task.schedule_id]
+        if task.completed_at:
+            form.date.data = task.completed_at.date()
+
     if form.validate_on_submit():
         # NCT tests are always carried out by a third-party test centre.
         is_third_party = form.provider_type.data == 'ThirdParty' or form.event_type.data == 'NCT'
@@ -133,7 +219,9 @@ def add_event(car_id):
             total_cost_override=form.total_cost_override.data if is_third_party else None,
             nct_result=(form.nct_result.data or None) if form.event_type.data == 'NCT' else None,
             nct_next_due=(form.nct_next_due.data if form.nct_result.data == 'Pass' else None) if form.event_type.data == 'NCT' else None,
+            expiry_date=form.expiry_date.data if form.event_type.data in RENEWAL_TYPES else None,
         )
+        _set_schedule_items(event, car, form.schedule_items.data)
         db.session.add(event)
         # Update car mileage if this reading is higher
         if mileage_km:
@@ -151,11 +239,17 @@ def add_event(car_id):
             upload = form.nct_cert.data
             if upload and getattr(upload, 'filename', ''):
                 event.nct_cert_filename = _save_nct_cert(upload, event.id)
+        short = _complete_task_with_event(task, event) if task else []
         db.session.commit()
         flash(f'Event "{event.title}" created.', 'success')
+        if task:
+            flash(f'Whiteboard card "{task.title}" ticked off.', 'info')
+        if short:
+            flash('Not enough on the shelf for: ' + ', '.join(short)
+                  + '. Those line items were added without deducting stock.', 'warning')
         return redirect(url_for('events.view_event', event_id=event.id))
 
-    return render_template('events/add_event.html', title='Add Event', form=form, car=car)
+    return render_template('events/add_event.html', title='Add Event', form=form, car=car, task=task)
 
 
 @events.route('/events/<int:event_id>')
@@ -163,12 +257,18 @@ def add_event(car_id):
 def view_event(event_id):
     event = ServiceEvent.query.get_or_404(event_id)
     form = AddLineItemForm()
+    form.stock_item_id.choices = _stock_choices()
+    stock_data = {s.id: {'name': s.name, 'part_number': s.part_number or '', 'unit_cost': s.unit_cost,
+                         'category': s.category, 'unit': s.unit, 'quantity': s.quantity}
+                  for s in StockItem.query.all()}
     return render_template(
         'events/view_event.html',
         title=event.title,
         event=event,
         car=event.car,
         form=form,
+        stock_data=stock_data,
+        tasks=Task.query.filter_by(event_id=event.id).all(),
     )
 
 
@@ -177,6 +277,9 @@ def view_event(event_id):
 def edit_event(event_id):
     event = ServiceEvent.query.get_or_404(event_id)
     form = EditEventForm(obj=event)
+    form.schedule_items.choices = _schedule_choices(event.car)
+    if request.method == 'GET':
+        form.schedule_items.data = [i.id for i in event.schedule_items]
     if form.validate_on_submit():
         event.title = form.title.data.strip()
         event.event_type = form.event_type.data
@@ -208,6 +311,7 @@ def edit_event(event_id):
                 event.invoice_filename = _save_invoice(invoice_upload, event.id)
                 # When an invoice is uploaded, line items no longer make sense — clear them.
                 for item in list(event.line_items):
+                    _return_stock(item)
                     db.session.delete(item)
         else:
             # Switched to Self — clear third-party-only fields and delete invoice
@@ -241,6 +345,9 @@ def edit_event(event_id):
             event.nct_result = None
             event.nct_next_due = None
 
+        event.expiry_date = form.expiry_date.data if event.event_type in RENEWAL_TYPES else None
+        _set_schedule_items(event, event.car, form.schedule_items.data)
+
         if event.mileage_at_event:
             car = event.car
             if car.current_mileage is None or event.mileage_at_event > car.current_mileage:
@@ -266,6 +373,9 @@ def delete_event(event_id):
     linked_log = MileageLog.query.filter_by(source_event_id=event.id).first()
     if linked_log:
         db.session.delete(linked_log)
+    for item in event.line_items:
+        _return_stock(item)
+    Task.query.filter_by(event_id=event.id).update({'event_id': None})
     db.session.delete(event)
     db.session.commit()
     if cert_to_remove:
@@ -289,19 +399,30 @@ def add_line_item(event_id):
         flash('This event uses an uploaded invoice for its cost — line items cannot be added.', 'warning')
         return redirect(url_for('events.view_event', event_id=event_id))
     form = AddLineItemForm()
+    form.stock_item_id.choices = _stock_choices()
     if form.validate_on_submit():
+        stock = db.session.get(StockItem, form.stock_item_id.data) if form.stock_item_id.data else None
         item = EventLineItem(
             event_id=event_id,
-            description=form.description.data.strip(),
+            description=(form.description.data or '').strip() or (stock.name if stock else ''),
             item_type=form.item_type.data,
-            part_number=form.part_number.data.strip() if form.part_number.data else None,
+            part_number=(form.part_number.data or '').strip() or (stock.part_number if stock else None),
             quantity=form.quantity.data,
             unit_cost=form.unit_cost.data,
             shipping_cost=form.shipping_cost.data or 0,
         )
+        if stock:
+            if not _take_from_stock(stock, item.quantity):
+                flash(f'Only {stock.quantity:g} {stock.unit} of {stock.name} on the shelf. '
+                      'Update the shelf or lower the quantity.', 'danger')
+                return redirect(url_for('events.view_event', event_id=event_id))
+            item.stock_item_id = stock.id
         db.session.add(item)
         db.session.commit()
-        flash('Line item added.', 'success')
+        if stock:
+            flash(f'Line item added. {stock.quantity:g} {stock.unit} of {stock.name} left on the shelf.', 'success')
+        else:
+            flash('Line item added.', 'success')
     else:
         for field_errors in form.errors.values():
             for error in field_errors:
@@ -316,6 +437,7 @@ def delete_line_item(event_id, item_id):
     if item.event_id != event_id:
         flash('Item not found on this event.', 'danger')
         return redirect(url_for('events.view_event', event_id=event_id))
+    _return_stock(item)
     db.session.delete(item)
     db.session.commit()
     flash('Line item removed.', 'success')

@@ -2,9 +2,9 @@ from flask_wtf import FlaskForm
 from flask_wtf.file import FileField, FileAllowed
 from wtforms import (
     StringField, IntegerField, FloatField, SelectField,
-    TextAreaField, DateField, SubmitField, BooleanField
+    TextAreaField, DateField, SubmitField, BooleanField, SelectMultipleField
 )
-from wtforms.validators import DataRequired, Optional, Length, NumberRange
+from wtforms.validators import DataRequired, InputRequired, Optional, Length, NumberRange
 from datetime import date as dt_date
 
 EVENT_TYPES = [
@@ -66,6 +66,10 @@ class AddEventForm(FlaskForm):
     nct_cert = FileField('NCT Certificate (PDF)',
                          validators=[Optional(), FileAllowed(['pdf'], 'PDF files only.')])
     nct_next_due = DateField('Next NCT Due (optional override)', validators=[Optional()])
+    # Tax / Insurance
+    expiry_date = DateField('Valid until', validators=[Optional()])
+    # Maintenance schedule items this event covered (choices set per car)
+    schedule_items = SelectMultipleField('Maintenance schedule items done', coerce=int, validators=[Optional()])
     submit = SubmitField('Save Event')
 
 
@@ -93,14 +97,28 @@ class EditEventForm(FlaskForm):
                          validators=[Optional(), FileAllowed(['pdf'], 'PDF files only.')])
     remove_nct_cert = BooleanField('Remove existing certificate')
     nct_next_due = DateField('Next NCT Due (optional override)', validators=[Optional()])
+    expiry_date = DateField('Valid until', validators=[Optional()])
+    schedule_items = SelectMultipleField('Maintenance schedule items done', coerce=int, validators=[Optional()])
     submit = SubmitField('Update Event')
 
 
 class AddLineItemForm(FlaskForm):
-    description = StringField('Description', validators=[DataRequired(), Length(max=300)])
+    # Optional: take it from the shelf (choices set in the route). Fills in the
+    # description, part number and cost, and deducts the quantity from stock.
+    stock_item_id = SelectField('From the shelf', coerce=int, default=0, validators=[Optional()])
+    description = StringField('Description', validators=[Optional(), Length(max=300)])
     item_type = SelectField('Type', choices=ITEM_TYPES, validators=[DataRequired()])
     part_number = StringField('Part No.', validators=[Optional(), Length(max=100)])
     quantity = FloatField('Qty', validators=[DataRequired(), NumberRange(min=0.001)])
-    unit_cost = FloatField('Unit Cost (€)', validators=[DataRequired(), NumberRange(min=0)])
+    # InputRequired, not DataRequired: a €0 item (e.g. leftovers from the shelf) is valid.
+    unit_cost = FloatField('Unit Cost (€)', validators=[InputRequired(), NumberRange(min=0)])
     shipping_cost = FloatField('Shipping (€)', validators=[Optional(), NumberRange(min=0)])
     submit = SubmitField('Add Item')
+
+    def validate(self, extra_validators=None):
+        if not super().validate(extra_validators):
+            return False
+        if not (self.description.data or '').strip() and not self.stock_item_id.data:
+            self.description.errors.append('Description is required.')
+            return False
+        return True

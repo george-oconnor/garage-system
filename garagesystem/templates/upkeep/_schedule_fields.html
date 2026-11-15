@@ -1,0 +1,35 @@
+{# Maintenance schedule item fields. Expects `form` (ScheduleForm). #}
+<div class="mb-3">
+    {{ form.name.label(class="form-label fw-semibold") }}
+    {{ form.name(class="form-control", placeholder="e.g. Timing belt, Brake fluid") }}
+</div>
+<div class="row g-3 mb-1">
+    <div class="col-6">
+        {{ form.interval_km.label(class="form-label") }}
+        {{ form.interval_km(class="form-control" + (" is-invalid" if form.interval_km.errors else ""), placeholder="e.g. 100000") }}
+        {% for error in form.interval_km.errors %}<div class="invalid-feedback">{{ error }}</div>{% endfor %}
+    </div>
+    <div class="col-6">
+        {{ form.interval_months.label(class="form-label") }}
+        {{ form.interval_months(class="form-control", placeholder="e.g. 60") }}
+    </div>
+</div>
+<div class="form-text mb-3">Whichever comes first. Leave one blank if it only goes by time or by distance.</div>
+<div class="row g-3 mb-1">
+    <div class="col-sm-5">
+        {{ form.last_done_date.label(class="form-label") }}
+        {{ form.last_done_date(class="form-control", type="date") }}
+    </div>
+    <div class="col-sm-7">
+        {{ form.last_done_mileage.label(class="form-label") }}
+        <div class="input-group">
+            {{ form.last_done_mileage(class="form-control", placeholder="Optional") }}
+            {{ form.last_done_mileage_unit(class="form-select", style="max-width:85px;") }}
+        </div>
+    </div>
+</div>
+<div class="form-text mb-3">When it was last done before you started logging it here. Events you tick it on later take over.</div>
+<div>
+    {{ form.notes.label(class="form-label") }}
+    {{ form.notes(class="form-control", placeholder="Optional, e.g. part numbers") }}
+</div>
