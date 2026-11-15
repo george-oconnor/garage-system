@@ -11,8 +11,13 @@ if os.path.exists(_config_path):
         _config = json.load(_f)
 
 
+# Fallback for local development only. This repo is public, so anyone can
+# read this value — create_app() refuses to use it outside DEVELOPMENT.
+DEV_SECRET_KEY = 'dev-secret-key-please-change'
+
+
 class Config:
-    SECRET_KEY = _config.get('SECRET_KEY') or os.environ.get('SECRET_KEY') or 'dev-secret-key-please-change'
+    SECRET_KEY = _config.get('SECRET_KEY') or os.environ.get('SECRET_KEY') or DEV_SECRET_KEY
 
     _db_path = os.path.abspath(os.path.join(_instance_dir, 'garage.db'))
     SQLALCHEMY_DATABASE_URI = (

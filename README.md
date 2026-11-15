@@ -23,9 +23,9 @@ database at `instance/garage.db` and a development secret key.
 
 | Key | Purpose |
 | --- | --- |
-| `SECRET_KEY` | Flask session signing — **must** be set in production |
+| `SECRET_KEY` | Flask session/cookie signing. **Must** be set outside development: the fallback is public, so the app refuses to start with it unless `SYSTEM` is `DEVELOPMENT` |
 | `SQLALCHEMY_DATABASE_URI` | Database URL (env: `DATABASE_URL`); defaults to SQLite |
-| `SYSTEM` | Environment name, e.g. `PRODUCTION` (also the Sentry environment) |
+| `SYSTEM` | Environment name, defaults to `DEVELOPMENT`; e.g. `PRODUCTION` (also the Sentry environment) |
 | `SENTRY_DSN`, `SENTRY_ENVIRONMENT` | Error reporting (optional) |
 | `REDIS_URL` | Redis for the RQ task queue (optional) |
 | `VEHICLE_LOOKUP_PROVIDER` | `regcheck` or `vehicledataglobal` |
@@ -82,11 +82,15 @@ tab (**Run workflow**). The workflow SSHes into the server and runs
    local commits or has otherwise diverged, the deploy stops here without
    changing anything.
 2. **Installs dependencies**, but only if `requirements.txt` changed.
-3. **Migrates the database** if its revision differs from the migration head. It
+3. **Pre-flight check:** builds the app with the new code and confirms
+   `SECRET_KEY` isn't the development default. If this fails (import error, bad
+   config, default key), the deploy stops before touching the database or
+   restarting, so the running app keeps serving the old code.
+4. **Migrates the database** if its revision differs from the migration head. It
    first snapshots the SQLite DB with `scripts/backup_db.py`, then runs
    `flask db upgrade`. If the DB is already at head, this step is skipped.
-4. **Restarts** the app with `supervisorctl restart garage-system`.
-5. **Health-checks** that the app answers on `localhost:8007`. If it doesn't, the
+5. **Restarts** the app with `supervisorctl restart garage-system`.
+6. **Health-checks** that the app answers on `localhost:8007`. If it doesn't, the
    run fails and prints supervisor status and the end of the error log.
 
 Deploys don't overlap: a push made while a deploy is running waits for it to

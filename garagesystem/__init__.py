@@ -28,10 +28,16 @@ login_manager.login_message_category = 'info'
 
 
 def create_app():
-    from garagesystem.config import Config
+    from garagesystem.config import Config, DEV_SECRET_KEY
 
     app = Flask(__name__)
     app.config.from_object(Config)
+
+    if app.config['SECRET_KEY'] == DEV_SECRET_KEY and app.config['SYSTEM'] != 'DEVELOPMENT':
+        raise RuntimeError(
+            f"SECRET_KEY is the public development default but SYSTEM is {app.config['SYSTEM']!r}. "
+            "Set SECRET_KEY in instance/config.json."
+        )
 
     # Behind nginx -> trust one proxy hop for X-Forwarded-{Proto,For,Host}
     # so request.is_secure/url_for(_external=True) reflect the real client.

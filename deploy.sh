@@ -28,6 +28,20 @@ main() {
         venv/bin/pip install --quiet -r requirements.txt
     fi
 
+    # Pre-flight: make sure the new code can actually build the app before we
+    # touch the database or restart. If this fails, the old workers keep
+    # serving and nothing has changed except the checked-out files.
+    echo "==> Pre-flight check"
+    venv/bin/python - <<'PY'
+import sys
+from garagesystem import create_app
+from garagesystem.config import DEV_SECRET_KEY
+app = create_app()
+if app.config['SECRET_KEY'] == DEV_SECRET_KEY:
+    sys.exit('!! SECRET_KEY is the public development default. Set it in instance/config.json.')
+print('==> App builds OK')
+PY
+
     local current head
     current=$(venv/bin/flask db current 2>/dev/null | awk 'NF {print $1}' | tail -n1)
     head=$(venv/bin/flask db heads 2>/dev/null | awk 'NF {print $1}' | tail -n1)
