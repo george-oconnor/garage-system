@@ -1,11 +1,15 @@
 #!/usr/bin/env bash
-# Runs ON THE SERVER (piped over SSH by .github/workflows/deploy.yml).
-# Pulls the latest master, installs dependencies, applies database migrations
-# and restarts the app.
+# Runs ON THE SERVER, from the server's checkout. GitHub Actions
+# (.github/workflows/deploy.yml) reaches it over SSH with a key that is locked
+# to this script in ~/.ssh/authorized_keys (command="...deploy.sh",restrict),
+# so that key can't do anything except trigger a deploy.
 #
-# Everything is inside main() so bash reads the whole script before running
-# any of it — otherwise a command that reads stdin could swallow the rest of
-# the script being piped in over SSH.
+# Pulls the latest master, installs dependencies, applies database migrations
+# and restarts the app. If the pull updates this script, it re-runs the new
+# version so changes to deploy.sh take effect in the same deploy.
+#
+# Everything is inside main(), and main is called with `; exit` on the same
+# line, so bash has parsed everything it will run before git rewrites this file.
 set -euo pipefail
 
 APP_DIR=/home/george/garage-system/garage-system
@@ -16,14 +20,29 @@ main() {
     cd "$APP_DIR"
     export FLASK_APP=run.py
 
-    echo "==> Current: $(git rev-parse --short HEAD)"
-    git fetch --quiet origin master
-    # --ff-only: refuse to deploy if the server checkout has diverged, rather
-    # than silently discarding local changes.
-    git merge --ff-only origin/master
+    local before
+    if [[ -n "${DEPLOY_REEXEC:-}" ]]; then
+        # Second pass after deploy.sh itself changed: the pull already happened.
+        before=$DEPLOY_PREV_HEAD
+    else
+        if [[ -n "${SSH_ORIGINAL_COMMAND+x}" ]]; then
+            echo "==> Running as locked-down deploy key"
+        fi
+        before=$(git rev-parse HEAD)
+        echo "==> Current: $(git rev-parse --short HEAD)"
+        git fetch --quiet origin master
+        # --ff-only: refuse to deploy if the server checkout has diverged,
+        # rather than silently discarding local changes.
+        git merge --ff-only origin/master
+
+        if ! git diff --quiet "$before" HEAD -- deploy.sh; then
+            echo "==> deploy.sh changed, re-running the new version"
+            DEPLOY_REEXEC=1 DEPLOY_PREV_HEAD=$before exec "$APP_DIR/deploy.sh"
+        fi
+    fi
     echo "==> Deploying: $(git rev-parse --short HEAD) $(git log -1 --format=%s)"
 
-    if ! git diff --quiet HEAD@{1} HEAD -- requirements.txt 2>/dev/null; then
+    if ! git diff --quiet "$before" HEAD -- requirements.txt; then
         echo "==> requirements.txt changed, installing dependencies"
         venv/bin/pip install --quiet -r requirements.txt
     fi
@@ -76,4 +95,4 @@ PY
     exit 1
 }
 
-main "$@" < /dev/null
+main "$@" < /dev/null; exit $?

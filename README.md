@@ -75,12 +75,15 @@ deploy doesn't install them.
 
 Every push to `master` runs the **Deploy** GitHub Actions workflow
 (`.github/workflows/deploy.yml`). You can also start it by hand from the Actions
-tab (**Run workflow**). The workflow SSHes into the server and runs
-`deploy.sh`, which:
+tab (**Run workflow**). The workflow SSHes into the server and runs `deploy.sh`
+from the server's checkout. The deploy key is locked to that script, so it
+can't be used for anything else (see [One-time server setup](#one-time-server-setup-already-done)).
+`deploy.sh`:
 
 1. **Fast-forwards** the server checkout to `origin/master`. If the server has
    local commits or has otherwise diverged, the deploy stops here without
-   changing anything.
+   changing anything. If the pull changed `deploy.sh` itself, the new version is
+   re-run, so changes to the deploy script take effect in the same deploy.
 2. **Installs dependencies**, but only if `requirements.txt` changed.
 3. **Pre-flight check:** builds the app with the new code and confirms
    `SECRET_KEY` isn't the development default. If this fails (import error, bad
@@ -134,8 +137,18 @@ the matching commit. Otherwise the next deploy will re-apply the migration.
 
 For reference, in case the server is rebuilt:
 
-- **SSH deploy key:** an ed25519 key with its public half in
-  `~george/.ssh/authorized_keys`.
+- **SSH deploy key:** an ed25519 key whose public half is in
+  `~george/.ssh/authorized_keys`, locked to the deploy script:
+
+  ```
+  command="/home/george/garage-system/garage-system/deploy.sh",restrict ssh-ed25519 AAAA... github-actions-deploy
+  ```
+
+  `command=` makes every login with this key run `deploy.sh`, whatever command
+  was requested. `restrict` turns off port forwarding, agent forwarding, X11 and
+  terminals. When this is in place, the deploy log shows
+  `Running as locked-down deploy key`. The private half lives only in the
+  GitHub secret.
 - **Sudoers:** `/etc/sudoers.d/garage-deploy` lets `george` run
   `supervisorctl restart garage-system` and `supervisorctl status garage-system`
   without a password.

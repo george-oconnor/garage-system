@@ -35,4 +35,7 @@ jobs:
         env:
           SSH_HOST: ${{ secrets.SSH_HOST }}
           SSH_USER: ${{ secrets.SSH_USER }}
-        run: ssh -i ~/.ssh/id_deploy -o BatchMode=yes "$SSH_USER@$SSH_HOST" 'bash -s' < deploy.sh
+        # The server's authorized_keys locks this key to deploy.sh, so the
+        # command sent here is ignored there; it's only used if the key isn't
+        # locked down.
+        run: ssh -i ~/.ssh/id_deploy -o BatchMode=yes "$SSH_USER@$SSH_HOST" /home/george/garage-system/garage-system/deploy.sh
