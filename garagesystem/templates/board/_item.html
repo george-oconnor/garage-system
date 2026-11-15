@@ -1,4 +1,6 @@
-{# One line on the whiteboard list. Expects `t` (Task) and `urgency` (dict). #}
+{# One line on the whiteboard list. Expects `t` (Task) and `urgency` (dict).
+   Set `readonly` for a line without the tick box (the car page's mini board),
+   and `hide_car` to leave out the car (it's the page you're on). #}
 {% set _u = urgency.get(t.id) if t.is_open else None %}
 {% set _source_icons = {
     'service': 'wrench-adjustable', 'schedule': 'arrow-repeat', 'nct': 'clipboard-check',
@@ -7,6 +9,9 @@
 {% set _status_tags = {'parts': 'waiting on parts', 'doing': 'in progress'} %}
 <li class="wb-item{% if not t.is_open %} is-done{% endif %}{% if _u == 'overdue' %} is-overdue{% endif %}"
     data-car="{{ t.car_id or 0 }}">
+    {% if readonly %}
+    <span class="wb-bullet" aria-hidden="true"></span>
+    {% else %}
     <form method="POST" class="wb-check-form"
           action="{{ url_for('board.complete_task', task_id=t.id) if t.is_open else url_for('board.reopen_task', task_id=t.id) }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -14,13 +19,15 @@
                 aria-label="{{ ('Mark “' ~ t.title ~ '” done') if t.is_open else ('Put “' ~ t.title ~ '” back on the list') }}"
                 title="{{ 'Tick off' if t.is_open else 'Put back on the list' }}"></button>
     </form>
+    {% endif %}
     <a class="wb-item-main" href="{{ url_for('board.view_task', task_id=t.id) }}">
         <span class="wb-item-title">
             {%- if t.priority == 'high' and t.is_open %}<span class="wb-bang" aria-label="High priority">!!</span>{% endif -%}
             {{ t.title }}
         </span>
         <span class="wb-item-meta">
-            {% if t.car %}
+            {% if hide_car %}
+            {% elif t.car %}
                 <span><strong>{{ t.car.registration | format_reg }}</strong> · {{ t.car.make }} {{ t.car.model }}</span>
             {% else %}
                 <span><i class="bi bi-house-gear"></i>Garage</span>

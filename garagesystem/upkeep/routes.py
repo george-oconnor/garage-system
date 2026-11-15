@@ -8,7 +8,9 @@ from flask_login import login_required
 from garagesystem import db
 from garagesystem.models import Car, FuelLog, MileageLog, MaintenanceSchedule, Task
 from garagesystem.upkeep.forms import FuelLogForm, ScheduleForm, SCHEDULE_PRESETS
-from garagesystem.cars.utils import convert_mileage_to_km, compute_car_insights, schedule_item_status
+from garagesystem.cars.utils import (
+    convert_mileage_to_km, compute_car_insights, schedule_item_status, schedule_item_events,
+)
 from garagesystem.upkeep.history import generate_history_pdf
 
 upkeep = Blueprint('upkeep', __name__)
@@ -154,7 +156,7 @@ def edit_schedule(car_id, item_id):
         return _back_to_car(car.id, '#schedule')
     insights = compute_car_insights(car)
     status = schedule_item_status(item, car, insights['annual_mileage'])
-    events = sorted(item.events, key=lambda e: e.date, reverse=True)
+    events = list(reversed(schedule_item_events(item, car)))
     return render_template('upkeep/edit_schedule.html', title=f'Edit {item.name}', form=form,
                            item=item, car=car, status=status, events=events)
 
@@ -165,6 +167,10 @@ def delete_schedule(car_id, item_id):
     item = MaintenanceSchedule.query.get_or_404(item_id)
     if item.car_id != car_id:
         abort(404)
+    if item.is_service:
+        # Next Service Due depends on it; change its interval instead.
+        flash('The Service item can\'t be removed, but you can change its interval.', 'warning')
+        return redirect(url_for('upkeep.edit_schedule', car_id=car_id, item_id=item.id))
     name = item.name
     Task.query.filter_by(schedule_id=item.id).update({'schedule_id': None})
     db.session.delete(item)

@@ -389,6 +389,46 @@
     line-height: 26px;
 }
 
+/* Read-only lines (car page) get a marker dot instead of a tick box */
+.wb-bullet {
+    flex: none;
+    width: 12px;
+    height: 12px;
+    margin: 9px 8px 0 6px;
+    border-radius: 50% 45% 55% 50%;
+    background: var(--wb-ink-black);
+    opacity: 0.8;
+}
+.wb-item.is-overdue .wb-bullet { background: var(--wb-ink-red); opacity: 1; }
+
+/* ── Mini board on the car page ────────────────────────── */
+.wb-mini .wb-board { min-height: 0; padding: 14px 18px 16px; }
+.wb-mini .wb-header { align-items: center; margin-bottom: 0.2rem; }
+.wb-mini .wb-title { font-size: 1.55rem; }
+.wb-mini .wb-item { padding-top: 0.5rem; padding-bottom: 0.45rem; }
+.wb-mini .wb-item-title { font-size: 1.15rem; }
+.wb-mini .wb-empty { padding: 0.6rem 0 0.2rem; text-align: left; font-size: 1.1rem; }
+.wb-mini-link {
+    font-family: var(--wb-marker-font);
+    font-size: 1rem;
+    color: var(--wb-ink-blue);
+    text-decoration: none;
+    white-space: nowrap;
+}
+.wb-mini-link:hover, .wb-mini-link:focus-visible { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; }
+.wb-mini-foot {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 0.4rem 1rem;
+    margin-top: 0.6rem;
+    font-family: var(--wb-hand-font);
+    font-size: 1.05rem;
+}
+.wb-mini-foot a { color: var(--wb-ink-blue); font-weight: 700; text-decoration: none; }
+.wb-mini-foot a:hover, .wb-mini-foot a:focus-visible { text-decoration: underline; }
+.wb-mini .wb-list { margin-bottom: 0; }
+
 /* ── Card detail page ──────────────────────────────────── */
 .wb-hand { font-family: var(--wb-hand-font); }
 .wb-marker-heading { font-family: var(--wb-marker-font); }
@@ -396,6 +436,8 @@
 /* ── Small screens ─────────────────────────────────────── */
 @media (max-width: 575.98px) {
     .wb-frame { padding: 8px; margin: 0 -6px; }
+    .wb-mini .wb-board { padding: 12px 12px 14px; }
+    .wb-mini .wb-title { font-size: 1.3rem; }
     .wb-board { padding: 14px 12px 18px; min-height: 0; }
     .wb-tally { margin-left: 0; width: 100%; }
     .wb-item { gap: 0.65rem; }

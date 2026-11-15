@@ -107,11 +107,21 @@ def latest_reading(car):
     return anchors[-1] if anchors else (None, None)
 
 
+def schedule_item_events(item, car):
+    """Events that count towards a schedule item: the ones it was ticked on,
+    plus, for the car's Service item, every Service event."""
+    events = {e.id: e for e in item.events}
+    if item.is_service:
+        events.update({e.id: e for e in car.service_events if e.event_type == 'Service'})
+    return sorted(events.values(), key=lambda e: e.date)
+
+
 def schedule_item_status(item, car, annual_mileage=None, today=None):
     """Where a MaintenanceSchedule item stands.
 
-    The basis is the most recent past event linked to the item, or the
-    item's own "last done" date/mileage if that is newer or there's no event.
+    The basis is the most recent past event that counts towards the item
+    (see schedule_item_events), or the item's own "last done" date/mileage if
+    that is newer or there's no event.
     Returns a dict: status ('overdue' | 'due_soon' | 'ok' | 'unknown'),
     basis_date, basis_mileage, basis_event, plus the project_due() keys.
     """
@@ -119,7 +129,7 @@ def schedule_item_status(item, car, annual_mileage=None, today=None):
     anchors = [(log.date, log.mileage) for log in car.mileage_logs]
 
     basis_date, basis_mileage, basis_event = item.last_done_date, item.last_done_mileage, None
-    past_events = sorted((e for e in item.events if e.date <= today), key=lambda e: e.date)
+    past_events = [e for e in schedule_item_events(item, car) if e.date <= today]
     if past_events:
         last = past_events[-1]
         if basis_date is None or last.date >= basis_date:
@@ -282,29 +292,23 @@ def compute_car_insights(car, today=None):
     if latest_mileage is None:
         latest_mileage = car.latest_mileage
 
-    # --- Next service due: last 'Service' event + the car's service interval.
-    # Only services that have actually happened count — a future-dated Service
-    # event is a booked appointment, surfaced separately. ---
+    # --- Next service due: the status of the car's Service schedule item, so
+    # the Insights panel, the schedule and the whiteboard agree. Only services
+    # that have happened count; a future-dated Service event is a booked
+    # appointment, surfaced separately. ---
     service_events = sorted((e for e in car.service_events if e.event_type == 'Service'), key=lambda e: e.date)
-    past_services = [e for e in service_events if e.date <= today]
     upcoming_services = [e for e in service_events if e.date > today]
-    if past_services:
-        last_service = past_services[-1]
-        baseline_mileage = last_service.mileage_at_event
-        if baseline_mileage is None:
-            baseline_mileage = estimate_mileage_at_date(anchors, last_service.date)
-
-        due = project_due(
-            last_service.date, baseline_mileage,
-            car.service_interval_months, car.service_interval_km,
-            latest_date, latest_mileage, insights['annual_mileage'], today,
-        )
-        insights['next_service'] = {
-            'due_date': due['due_date'],
-            'due_mileage': due['due_mileage'],
-            'overdue': due['overdue'],
-            'basis_date': last_service.date,
-        }
+    service_item = car.service_item
+    if service_item is not None:
+        st = schedule_item_status(service_item, car, insights['annual_mileage'], today)
+        if st['status'] != 'unknown':
+            insights['next_service'] = {
+                'due_date': st['due_date'],
+                'due_mileage': st['due_mileage'],
+                'overdue': st['overdue'],
+                'basis_date': st['basis_date'],
+                'basis_mileage': st['basis_mileage'],
+            }
 
     if upcoming_services:
         booked_date = upcoming_services[0].date

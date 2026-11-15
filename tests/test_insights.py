@@ -1,7 +1,8 @@
 from datetime import date
 
 from garagesystem.cars.utils import (
-    project_due, schedule_item_status, renewal_status, compute_fuel_stats, compute_car_insights,
+    project_due, schedule_item_status, schedule_item_events, renewal_status, compute_fuel_stats,
+    compute_car_insights,
 )
 from garagesystem.models import MaintenanceSchedule, FuelLog
 from tests.factories import make_car, log_mileage, make_event
@@ -112,3 +113,50 @@ def test_insights_running_cost_adds_fuel(db):
     assert ins['cost_per_km'] == 0.1
     assert ins['fuel_cost_per_km'] == 0.09
     assert ins['total_cost_per_km'] == 0.19
+
+
+# ── Service item: the service interval lives on the schedule ─────────────
+
+def _service_item(db, car, km=15000, months=12, **kw):
+    item = MaintenanceSchedule(car_id=car.id, name='Service', interval_km=km, interval_months=months,
+                               is_service=True, **kw)
+    db.session.add(item)
+    db.session.flush()
+    return item
+
+
+def test_next_service_comes_from_service_item(db):
+    car = make_car()
+    log_mileage(car, date(2025, 11, 15), 50000)
+    log_mileage(car, TODAY, 60000)
+    _service_item(db, car, km=15000, months=12)
+    make_event(car, date(2026, 3, 1), 'Service', mileage=54000)
+
+    ns = compute_car_insights(car, TODAY)['next_service']
+    assert ns['basis_date'] == date(2026, 3, 1)
+    assert ns['due_mileage'] == 69000           # 54,000 + 15,000
+    assert ns['due_date'] == date(2027, 3, 1)   # 12 months, before the mileage limit
+
+    # Changing the item's interval changes Next Service Due
+    car.service_item.interval_km = 8000
+    assert compute_car_insights(car, TODAY)['next_service']['due_mileage'] == 62000
+
+
+def test_service_item_counts_ticked_and_last_done(db):
+    car = make_car()
+    item = _service_item(db, car, last_done_date=date(2025, 6, 1))
+    # No events yet: the item's own "last done" date is the basis
+    assert compute_car_insights(car, TODAY)['next_service']['basis_date'] == date(2025, 6, 1)
+
+    # A Repair event ticked as covering the service counts too
+    repair = make_event(car, date(2026, 2, 1), 'Repair')
+    repair.schedule_items.append(item)
+    db.session.flush()
+    assert compute_car_insights(car, TODAY)['next_service']['basis_date'] == date(2026, 2, 1)
+    assert [e.id for e in schedule_item_events(item, car)] == [repair.id]
+
+
+def test_no_service_item_means_no_estimate(db):
+    car = make_car()
+    make_event(car, date(2026, 3, 1), 'Service')
+    assert compute_car_insights(car, TODAY)['next_service'] is None

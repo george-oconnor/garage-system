@@ -135,9 +135,12 @@
         try { localStorage.setItem('wb-filter', value); } catch (e) {}
     }
     chips.forEach(function (c) { c.addEventListener('click', function () { applyFilter(c.dataset.filter); }); });
-    var saved = null;
-    try { saved = localStorage.getItem('wb-filter'); } catch (e) {}
-    if (saved && document.querySelector('.wb-chip[data-filter="' + saved + '"]')) applyFilter(saved);
+    // ?show=<car id> (from a car page) wins over the remembered filter.
+    var wanted = new URLSearchParams(location.search).get('show');
+    if (!wanted) {
+        try { wanted = localStorage.getItem('wb-filter'); } catch (e) {}
+    }
+    if (wanted && document.querySelector('.wb-chip[data-filter="' + wanted + '"]')) applyFilter(wanted);
 
     {% if request.args.get('add') %}
     bootstrap.Modal.getOrCreateInstance(document.getElementById('addTaskModal')).show();

@@ -125,3 +125,25 @@ def test_history_pdf_appends_nct_cert(client, db, app, tmp_path, monkeypatch):
     without = PdfReader(BytesIO(r.data))
     assert len(without.pages) == len(with_cert.pages) - 1
     assert '€' not in without.pages[0].extract_text()
+
+
+def test_new_car_gets_a_service_item(client, db, app):
+    with client.session_transaction(base_url='https://localhost') as sess:
+        sess['new_car_prefill'] = {'registration': '242D555', 'make': 'Ford', 'model': 'Focus'}
+    client.post('/cars/new/details', base_url='https://localhost', data={
+        'registration': '242D555', 'make': 'Ford', 'model': 'Focus',
+        'current_mileage_unit': 'km', 'purchase_mileage_unit': 'km',
+    })
+    from garagesystem.models import Car
+    car = Car.query.filter_by(registration='242D555').one()
+    assert [(i.name, i.interval_km, i.interval_months, i.is_service) for i in car.schedule_items] == [
+        ('Service', 10000, 12, True)]
+
+
+def test_car_page_mini_board_is_read_only(client, db):
+    car = _populated(db)
+    page = client.get(f'/cars/{car.id}').get_data(as_text=True)
+    mini = page[page.index('id="miniBoardTitle"'):page.index('id="records"')]
+    assert 'Fix boot rattle' in mini and 'Buy axle stands' not in mini   # only this car's jobs
+    assert 'wb-check' not in mini                                       # no tick boxes
+    assert f'/board?show={car.id}' in mini
