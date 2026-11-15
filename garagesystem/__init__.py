@@ -5,6 +5,7 @@ from flask_migrate import Migrate
 from flask_bcrypt import Bcrypt
 from flask_login import LoginManager
 from flask_session import Session
+from flask_wtf.csrf import CSRFProtect
 from sqlalchemy import MetaData
 from werkzeug.middleware.proxy_fix import ProxyFix
 import sentry_sdk
@@ -18,6 +19,9 @@ metadata = MetaData(naming_convention={
 })
 
 flask_session = Session()
+# Checks the CSRF token on every POST: the csrf_token form field, or the
+# X-CSRFToken header for fetch() calls (the whiteboard's drag-and-drop).
+csrf = CSRFProtect()
 db = SQLAlchemy(metadata=metadata)
 migrate = Migrate()
 bcrypt = Bcrypt()
@@ -69,6 +73,7 @@ def create_app():
     bcrypt.init_app(app)
     login_manager.init_app(app)
     flask_session.init_app(app)
+    csrf.init_app(app)
 
     @app.template_filter('format_reg')
     def format_reg(reg):

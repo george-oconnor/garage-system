@@ -32,6 +32,11 @@ class Config:
     SENTRY_DSN = _config.get('SENTRY_DSN') or os.environ.get('SENTRY_DSN') or ''
     SENTRY_ENVIRONMENT = _config.get('SENTRY_ENVIRONMENT') or SYSTEM
 
+    # CSRF tokens stay valid for the whole login session rather than the default
+    # hour, so a page left open (the whiteboard on a garage tablet) still works.
+    # They're still tied to the session, so they can't be reused after it ends.
+    WTF_CSRF_TIME_LIMIT = None
+
     SESSION_TYPE = 'filesystem'
     SESSION_FILE_DIR = os.path.join(_pkg_dir, '..', 'flask_session')
 
