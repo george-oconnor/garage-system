@@ -49,8 +49,8 @@ def test_pages_render(client, db):
     assert 'Fix boot rattle' in board
 
     page = client.get(f'/cars/{car.id}').get_data(as_text=True)
-    assert 'Maintenance Schedule' in page and 'Timing belt' in page
-    assert 'Fuel Log' in page and 'L/100km' in page
+    assert 'id="schedule"' in page and 'Timing belt' in page
+    assert 'id="fuel"' in page and 'Log fill-up' in page and 'L/100km' in page
 
 
 def test_fuel_log_feeds_mileage_log(client, db):

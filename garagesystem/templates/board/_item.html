@@ -1,0 +1,58 @@
+{# One line on the whiteboard list. Expects `t` (Task) and `urgency` (dict). #}
+{% set _u = urgency.get(t.id) if t.is_open else None %}
+{% set _source_icons = {
+    'service': 'wrench-adjustable', 'schedule': 'arrow-repeat', 'nct': 'clipboard-check',
+    'tax': 'receipt', 'insurance': 'shield-check', 'stock': 'box-seam'
+} %}
+{% set _status_tags = {'parts': 'waiting on parts', 'doing': 'in progress'} %}
+<li class="wb-item{% if not t.is_open %} is-done{% endif %}{% if _u == 'overdue' %} is-overdue{% endif %}"
+    data-car="{{ t.car_id or 0 }}">
+    <form method="POST" class="wb-check-form"
+          action="{{ url_for('board.complete_task', task_id=t.id) if t.is_open else url_for('board.reopen_task', task_id=t.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="wb-check"
+                aria-label="{{ ('Mark “' ~ t.title ~ '” done') if t.is_open else ('Put “' ~ t.title ~ '” back on the list') }}"
+                title="{{ 'Tick off' if t.is_open else 'Put back on the list' }}"></button>
+    </form>
+    <a class="wb-item-main" href="{{ url_for('board.view_task', task_id=t.id) }}">
+        <span class="wb-item-title">
+            {%- if t.priority == 'high' and t.is_open %}<span class="wb-bang" aria-label="High priority">!!</span>{% endif -%}
+            {{ t.title }}
+        </span>
+        <span class="wb-item-meta">
+            {% if t.car %}
+                <span><strong>{{ t.car.registration | format_reg }}</strong> · {{ t.car.make }} {{ t.car.model }}</span>
+            {% else %}
+                <span><i class="bi bi-house-gear"></i>Garage</span>
+            {% endif %}
+            {% if t.is_open %}
+                {% if t.due_date %}
+                <span class="{{ 'wb-due-' ~ _u if _u else '' }}"><i class="bi bi-calendar-event"></i>by {{ t.due_date | short_date }}</span>
+                {% endif %}
+                {% if t.due_mileage %}
+                <span class="{{ 'wb-due-' ~ _u if _u else '' }}"><i class="bi bi-speedometer2"></i>@ {{ '{:,}'.format(t.due_mileage) }} km</span>
+                {% endif %}
+                {% if t.parts %}
+                {% set _in = t.parts | selectattr('status', 'equalto', 'arrived') | list | length %}
+                <span><i class="bi bi-gear"></i>{{ _in }}/{{ t.parts | length }} parts in</span>
+                {% endif %}
+            {% else %}
+                {% if t.completed_at %}<span>done {{ t.completed_at | short_date }}</span>{% endif %}
+                {% if t.event_id %}<span><i class="bi bi-journal-check"></i>logged</span>{% endif %}
+            {% endif %}
+        </span>
+        {% if t.is_open and (_u == 'overdue' or t.status in _status_tags) %}
+        <span class="wb-item-tags-inline">
+            {% if _u == 'overdue' %}<span class="wb-tag overdue">overdue</span>{% endif %}
+            {% if t.status in _status_tags %}<span class="wb-tag {{ t.status }}">{{ _status_tags[t.status] }}</span>{% endif %}
+        </span>
+        {% endif %}
+    </a>
+    {% if t.is_open %}
+    <span class="wb-item-tags">
+        {% if _u == 'overdue' %}<span class="wb-tag overdue">overdue</span>{% endif %}
+        {% if t.status in _status_tags %}<span class="wb-tag {{ t.status }}">{{ _status_tags[t.status] }}</span>{% endif %}
+        {% if t.is_auto %}<span class="wb-tag auto" title="Added automatically"><i class="bi bi-{{ _source_icons.get(t.source, 'magic') }} me-1"></i>reminder</span>{% endif %}
+    </span>
+    {% endif %}
+</li>

@@ -99,6 +99,18 @@ def create_app():
         return text if d.year == year else f"{text} {d.year}"
 
     @app.context_processor
+    def inject_static_version():
+        def static_version(filename):
+            """File mtime, used as a cache-busting query param. nginx caches
+            /static/ for 30 days, so changed CSS needs a new URL."""
+            import os
+            try:
+                return int(os.path.getmtime(os.path.join(app.static_folder, filename)))
+            except OSError:
+                return 0
+        return {'static_version': static_version}
+
+    @app.context_processor
     def inject_globals():
         from datetime import datetime
         from flask_wtf.csrf import generate_csrf

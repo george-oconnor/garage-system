@@ -3,7 +3,6 @@ from wtforms import StringField, IntegerField, FloatField, SelectField, TextArea
 from wtforms.validators import DataRequired, Optional, Length, NumberRange
 
 PRIORITIES = [('normal', 'Normal'), ('high', 'High'), ('low', 'Low')]
-COLOURS = [('yellow', 'Yellow'), ('pink', 'Pink'), ('blue', 'Blue'), ('green', 'Green'), ('orange', 'Orange')]
 STATUSES = [('todo', 'To do'), ('parts', 'Waiting on parts'), ('doing', 'In progress'), ('done', 'Done')]
 MILEAGE_UNITS = [('km', 'km'), ('mi', 'mi')]
 
@@ -11,9 +10,8 @@ MILEAGE_UNITS = [('km', 'km'), ('mi', 'mi')]
 class TaskForm(FlaskForm):
     title = StringField('Job', validators=[DataRequired(), Length(max=200)])
     car_id = SelectField('Car', coerce=int, validators=[Optional()])
-    status = SelectField('Column', choices=STATUSES, default='todo')
+    status = SelectField('Status', choices=STATUSES, default='todo')
     priority = SelectField('Priority', choices=PRIORITIES, default='normal')
-    colour = SelectField('Sticky note', choices=COLOURS, default='yellow')
     due_date = DateField('Due by date', validators=[Optional()])
     due_mileage = IntegerField('Due by mileage', validators=[Optional(), NumberRange(min=0)])
     due_mileage_unit = SelectField('Unit', choices=MILEAGE_UNITS, default='km')

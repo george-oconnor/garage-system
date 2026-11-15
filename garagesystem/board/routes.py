@@ -1,6 +1,6 @@
-from datetime import datetime, date as _date
+from datetime import datetime, timedelta, date as _date
 
-from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
+from flask import Blueprint, render_template, request, redirect, url_for, flash
 from flask_login import login_required
 
 from garagesystem import db
@@ -11,7 +11,7 @@ from garagesystem.cars.utils import convert_mileage_to_km
 
 board = Blueprint('board', __name__)
 
-# Done cards stay on the board this long, then they're "wiped off".
+# Finished jobs stay on the board this long, then they're "wiped off".
 DONE_VISIBLE_DAYS = 14
 
 
@@ -32,26 +32,36 @@ def _stock_choices():
 @login_required
 def view_board():
     sync_auto_tasks()
-    open_tasks = (Task.query.filter(Task.status.in_(('todo', 'parts', 'doing')))
-                  .order_by(Task.position, Task.id).all())
-    cutoff = datetime.utcnow().timestamp() - DONE_VISIBLE_DAYS * 86400
-    done = [t for t in Task.query.filter_by(status='done').order_by(Task.completed_at.desc()).all()
-            if t.completed_at and t.completed_at.timestamp() >= cutoff]
+    today = _date.today()
+    open_tasks = Task.query.filter(Task.status.in_(('todo', 'parts', 'doing'))).all()
+    urgency = {t.id: task_urgency(t, today) for t in open_tasks}
+    # Most pressing first: overdue, due soon, in progress, waiting on parts,
+    # then everything else; within each, the earliest due date first.
+    rank = {'overdue': 0, 'soon': 1}
+    status_rank = {'doing': 0, 'parts': 1, 'todo': 2}
+    open_tasks.sort(key=lambda t: (rank.get(urgency[t.id], 2), status_rank[t.status],
+                                   t.due_date or _date.max, t.date_added))
 
-    columns = {s: [] for s in TASK_STATUSES}
-    for t in open_tasks:
-        columns[t.status].append(t)
-    columns['done'] = done
+    cutoff = datetime.utcnow() - timedelta(days=DONE_VISIBLE_DAYS)
+    done_tasks = (Task.query.filter(Task.status == 'done', Task.completed_at >= cutoff)
+                  .order_by(Task.completed_at.desc()).all())
+
+    # Just ticked off a car job: offer to log it in the service history.
+    just_done = None
+    done_id = request.args.get('done', type=int)
+    if done_id:
+        t = db.session.get(Task, done_id)
+        if t and t.status == 'done' and t.car_id and not t.event_id:
+            just_done = t
 
     form = TaskForm()
     form.car_id.choices = _car_choices()
     if request.args.get('car', type=int):
         form.car_id.data = request.args.get('car', type=int)
-    today = _date.today()
-    urgency = {t.id: task_urgency(t, today) for t in open_tasks}
     cars = Car.query.order_by(Car.registration).all()
-    return render_template('board/board.html', title='Whiteboard', columns=columns,
-                           form=form, urgency=urgency, cars=cars, today=today,
+    return render_template('board/board.html', title='Whiteboard', open_tasks=open_tasks,
+                           done_tasks=done_tasks, form=form, urgency=urgency, cars=cars, today=today,
+                           just_done=just_done,
                            overdue_count=sum(1 for u in urgency.values() if u == 'overdue'))
 
 
@@ -66,7 +76,6 @@ def add_task():
             car_id=form.car_id.data or None,
             status=form.status.data,
             priority=form.priority.data,
-            colour=form.colour.data,
             due_date=form.due_date.data,
             due_mileage=convert_mileage_to_km(form.due_mileage.data, form.due_mileage_unit.data),
             notes=form.notes.data or None,
@@ -104,7 +113,6 @@ def view_task(task_id):
         task.title = form.title.data.strip()
         task.car_id = form.car_id.data or None
         task.priority = form.priority.data
-        task.colour = form.colour.data
         task.due_date = form.due_date.data
         task.due_mileage = convert_mileage_to_km(form.due_mileage.data, form.due_mileage_unit.data)
         task.notes = form.notes.data or None
@@ -124,30 +132,6 @@ def _set_status(task, status):
     task.completed_at = datetime.utcnow() if status == 'done' else None
 
 
-@board.route('/board/move', methods=['POST'])
-@login_required
-def move_task():
-    """Drag-and-drop: put a card in a column and renumber that column."""
-    data = request.get_json(silent=True) or {}
-    task = db.session.get(Task, data.get('id'))
-    status = data.get('status')
-    if task is None or status not in TASK_STATUSES:
-        return jsonify({'ok': False, 'error': 'Unknown card or column.'}), 400
-    _set_status(task, status)
-    order = [int(i) for i in data.get('order', []) if str(i).isdigit()]
-    if order:
-        by_id = {t.id: t for t in Task.query.filter(Task.id.in_(order)).all()}
-        for pos, tid in enumerate(order, start=1):
-            if tid in by_id and by_id[tid].status == status:
-                by_id[tid].position = pos
-    db.session.commit()
-    return jsonify({
-        'ok': True,
-        'can_log': bool(status == 'done' and task.car_id and not task.event_id),
-        'log_url': url_for('board.log_task', task_id=task.id),
-    })
-
-
 @board.route('/board/tasks/<int:task_id>/done', methods=['POST'])
 @login_required
 def complete_task(task_id):
@@ -155,7 +139,21 @@ def complete_task(task_id):
     _set_status(task, 'done')
     db.session.commit()
     flash(f'"{task.title}" ticked off.', 'success')
-    return redirect(request.form.get('next') or url_for('board.view_board'))
+    if request.form.get('next'):
+        return redirect(request.form['next'])
+    # Back to the board, which offers to log a car job as a service event.
+    return redirect(url_for('board.view_board', done=task.id))
+
+
+@board.route('/board/tasks/<int:task_id>/reopen', methods=['POST'])
+@login_required
+def reopen_task(task_id):
+    """Untick a finished job and put it back on the list."""
+    task = Task.query.get_or_404(task_id)
+    _set_status(task, 'todo')
+    db.session.commit()
+    flash(f'"{task.title}" is back on the list.', 'info')
+    return redirect(url_for('board.view_board'))
 
 
 @board.route('/board/tasks/<int:task_id>/log')

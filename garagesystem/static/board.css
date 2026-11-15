@@ -1,7 +1,7 @@
 /* =========================================================
    Garage whiteboard
-   An aluminium-framed whiteboard with marker-pen headings,
-   sticky notes held on by magnets, and a marker tray.
+   An aluminium-framed whiteboard with the job list written
+   on it in marker, and a marker tray with an eraser.
    ========================================================= */
 
 :root {
@@ -10,11 +10,6 @@
     --wb-ink-blue: #1f4fbf;
     --wb-ink-green: #2e7d32;
     --wb-ink-orange: #e65100;
-    --wb-note-yellow: #fff1a1;
-    --wb-note-pink: #ffcfe0;
-    --wb-note-blue: #c6e3ff;
-    --wb-note-green: #d3f5c4;
-    --wb-note-orange: #ffd9a8;
     --wb-marker-font: 'Permanent Marker', 'Comic Sans MS', cursive;
     --wb-hand-font: 'Kalam', 'Comic Sans MS', cursive;
 }
@@ -47,7 +42,7 @@
 .wb-board {
     position: relative;
     overflow: hidden;
-    min-height: 520px;
+    min-height: 360px;
     padding: 18px 20px 26px;
     border-radius: 3px;
     background:
@@ -156,242 +151,159 @@
     transform: rotate(-4deg);
 }
 
-/* ── Columns ───────────────────────────────────────────── */
-.wb-columns {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 0 22px;
-}
-
-.wb-col {
-    position: relative;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-}
-
-/* Hand-drawn divider between columns */
-.wb-col + .wb-col::before {
-    content: "";
-    position: absolute;
-    left: -13px;
-    top: 4px;
-    bottom: 6px;
-    width: 3px;
-    background: var(--wb-ink-black);
-    opacity: 0.72;
-    border-radius: 3px 1px 4px 2px;
-    transform: rotate(0.35deg);
-}
-.wb-col:nth-child(3)::before { transform: rotate(-0.4deg); }
-
-.wb-col-title {
+/* ── The list ──────────────────────────────────────────── */
+.wb-section-title {
     font-family: var(--wb-marker-font);
     font-size: 1.3rem;
-    margin: 0 0 0.6rem;
+    margin: 0.4rem 0 0.2rem;
     padding-bottom: 6px;
     background-repeat: no-repeat;
     background-position: left bottom;
-    background-size: 100% 8px;
-    white-space: nowrap;
+    background-size: min(260px, 100%) 8px;
 }
-.wb-col-title .wb-count {
-    font-size: 0.95rem;
-    opacity: 0.6;
-    margin-left: 0.2rem;
-}
+.wb-section-title .wb-count { font-size: 0.95rem; opacity: 0.6; margin-left: 0.2rem; }
 .ink-black { color: var(--wb-ink-black); }
-.ink-red   { color: var(--wb-ink-red); }
-.ink-blue  { color: var(--wb-ink-blue); }
 .ink-green { color: var(--wb-ink-green); }
-.wb-col-title.ink-black { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 8' preserveAspectRatio='none'%3E%3Cpath d='M2 5 Q50 1 100 4 T198 3' stroke='%2323262b' stroke-width='2.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); }
-.wb-col-title.ink-red   { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 8' preserveAspectRatio='none'%3E%3Cpath d='M2 5 Q50 1 100 4 T198 3' stroke='%23c62828' stroke-width='2.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); }
-.wb-col-title.ink-blue  { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 8' preserveAspectRatio='none'%3E%3Cpath d='M2 5 Q50 1 100 4 T198 3' stroke='%231f4fbf' stroke-width='2.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); }
-.wb-col-title.ink-green { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 8' preserveAspectRatio='none'%3E%3Cpath d='M2 5 Q50 1 100 4 T198 3' stroke='%232e7d32' stroke-width='2.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); }
+.wb-section-title.ink-black { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 8' preserveAspectRatio='none'%3E%3Cpath d='M2 5 Q50 1 100 4 T198 3' stroke='%2323262b' stroke-width='2.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); }
+.wb-section-title.ink-green { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 8' preserveAspectRatio='none'%3E%3Cpath d='M2 5 Q50 1 100 4 T198 3' stroke='%232e7d32' stroke-width='2.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); }
 
-.wb-cards {
+.wb-list {
+    list-style: none;
+    margin: 0 0 1.4rem;
+    padding: 0;
+}
+
+.wb-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.85rem;
+    padding: 0.7rem 0.25rem 0.65rem 0.75rem;
+    border-bottom: 1.5px dashed rgba(35, 38, 43, 0.14);
+    font-family: var(--wb-hand-font);
+}
+.wb-item:last-child { border-bottom: 0; }
+
+/* Hand-drawn tick box */
+.wb-check-form { margin: 0; flex: none; }
+.wb-check {
+    position: relative;
+    width: 28px;
+    height: 28px;
+    margin-top: 2px;
+    padding: 0;
+    background: transparent;
+    border: 2.5px solid var(--wb-ink-black);
+    border-radius: 4px 7px 3px 6px / 6px 3px 7px 4px;
+    cursor: pointer;
+    transition: background-color 0.15s, transform 0.15s;
+}
+.wb-check:hover, .wb-check:focus-visible {
+    background: rgba(46, 125, 50, 0.08);
+    transform: rotate(-3deg);
+}
+.wb-check:focus-visible { outline: 2px solid var(--wb-ink-blue); outline-offset: 3px; }
+.wb-check:hover::after,
+.is-done .wb-check::after {
+    content: "\2713";
+    position: absolute;
+    left: 3px;
+    top: -12px;
+    font-family: var(--wb-marker-font);
+    font-size: 1.9rem;
+    line-height: 1;
+    color: var(--wb-ink-green);
+}
+.wb-check:hover::after { opacity: 0.45; }
+.is-done .wb-check:hover::after { opacity: 1; content: "\21BA"; font-size: 1.3rem; left: 4px; top: 1px; }
+
+.wb-item-main {
     flex: 1;
-    min-height: 120px;
+    min-width: 0;
+    color: var(--wb-ink-black);
+    text-decoration: none;
+}
+.wb-item-main:hover .wb-item-title { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 4px; }
+.wb-item-main:focus-visible { outline: 2px solid var(--wb-ink-blue); outline-offset: 4px; border-radius: 4px; }
+
+.wb-item-title {
+    display: block;
+    font-weight: 700;
+    font-size: 1.28rem;
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+}
+.wb-bang { font-family: var(--wb-marker-font); color: var(--wb-ink-red); margin-right: 0.3rem; }
+.wb-item-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.05rem 0.9rem;
+    margin-top: 2px;
+    font-size: 1rem;
+    color: #5b6068;
+}
+.wb-item-meta .bi { font-size: 0.85em; margin-right: 0.2rem; }
+.wb-item-meta strong { color: #3a3e44; letter-spacing: 0.4px; }
+.wb-due-overdue { color: var(--wb-ink-red); font-weight: 700; }
+.wb-due-soon    { color: var(--wb-ink-orange); font-weight: 700; }
+
+/* Right-hand marker notes: status and "overdue" */
+.wb-item-tags {
+    flex: none;
     display: flex;
     flex-direction: column;
-    gap: 16px;
-    padding: 10px 2px 8px;
+    align-items: flex-end;
+    gap: 0.3rem;
+    padding-top: 3px;
 }
-
-.wb-empty {
-    display: none;
-    position: absolute;
-    top: 64px;
-    left: 0;
-    right: 0;
-    font-family: var(--wb-hand-font);
-    color: #9aa0a6;
-    font-size: 1.05rem;
-    text-align: center;
-    margin: 0;
-    pointer-events: none;
-}
-.wb-col.is-empty .wb-empty { display: block; }
-
-.wb-add {
-    margin-top: 6px;
+.wb-tag {
     font-family: var(--wb-marker-font);
-    font-size: 1.05rem;
+    font-size: 0.85rem;
+    line-height: 1.2;
+    white-space: nowrap;
+    padding: 0.05rem 0.45rem;
+    border: 2px solid currentColor;
+    border-radius: 4px 8px 3px 7px;
+}
+.wb-tag.parts   { color: var(--wb-ink-red); transform: rotate(-2deg); }
+.wb-tag.doing   { color: var(--wb-ink-blue); transform: rotate(1.5deg); }
+.wb-tag.overdue { color: #fff; background: var(--wb-ink-red); border-color: var(--wb-ink-red); transform: rotate(2deg); }
+.wb-tag.auto    { color: #7a8088; border-style: dashed; border-width: 1.5px; font-family: var(--wb-hand-font); font-weight: 700; }
+
+/* Overdue lines get a red marker stroke down the left */
+.wb-item.is-overdue { box-shadow: inset 4px 0 0 rgba(198, 40, 40, 0.75); border-radius: 2px; }
+
+/* Done: faded and struck through in green */
+.wb-item.is-done { opacity: 0.6; padding-top: 0.45rem; padding-bottom: 0.4rem; }
+.wb-item.is-done .wb-item-title {
+    font-size: 1.1rem;
+    text-decoration: line-through;
+    text-decoration-color: var(--wb-ink-green);
+    text-decoration-thickness: 3px;
+}
+
+.wb-add-row { padding-top: 0.8rem; }
+.wb-add {
+    width: 100%;
+    font-family: var(--wb-marker-font);
+    font-size: 1.1rem;
     color: var(--wb-ink-blue);
     background: transparent;
     border: 2px dashed rgba(31, 79, 191, 0.45);
     border-radius: 12px 4px 10px 6px;
-    padding: 0.5rem;
+    padding: 0.55rem;
     cursor: pointer;
     transition: background-color 0.15s;
 }
 .wb-add:hover, .wb-add:focus-visible { background: rgba(31, 79, 191, 0.07); }
 
-/* ── Sticky notes ──────────────────────────────────────── */
-.wb-note {
-    position: relative;
-    padding: 18px 14px 12px;
+.wb-empty {
     font-family: var(--wb-hand-font);
-    color: #2a2a2a;
-    background: var(--wb-note-yellow);
-    border-radius: 2px 2px 3px 18px / 2px 2px 3px 6px;
-    box-shadow:
-        0 1px 1px rgba(0, 0, 0, 0.08),
-        0 8px 12px -6px rgba(0, 0, 0, 0.35);
-    transform: rotate(-1.1deg);
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
-    cursor: grab;
-    touch-action: manipulation;
+    color: #8a9097;
+    font-size: 1.15rem;
+    text-align: center;
+    padding: 1.5rem 0 0.5rem;
+    margin: 0;
 }
-.wb-note:nth-child(3n+2) { transform: rotate(0.9deg); }
-.wb-note:nth-child(3n)   { transform: rotate(-0.4deg); }
-.wb-note:hover {
-    transform: rotate(0deg) translateY(-2px);
-    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.08), 0 14px 18px -8px rgba(0, 0, 0, 0.4);
-}
-/* Slight fold shading on the bottom-left curl */
-.wb-note::after {
-    content: "";
-    position: absolute;
-    left: 0;
-    bottom: 0;
-    width: 40%;
-    height: 14px;
-    background: linear-gradient(10deg, rgba(0, 0, 0, 0.07), rgba(0, 0, 0, 0));
-    border-bottom-left-radius: 18px 6px;
-    pointer-events: none;
-}
-
-.note-yellow { background: var(--wb-note-yellow); }
-.note-pink   { background: var(--wb-note-pink); }
-.note-blue   { background: var(--wb-note-blue); }
-.note-green  { background: var(--wb-note-green); }
-.note-orange { background: var(--wb-note-orange); }
-
-/* Magnet */
-.wb-magnet {
-    position: absolute;
-    top: -7px;
-    left: 50%;
-    width: 18px;
-    height: 18px;
-    margin-left: -9px;
-    border-radius: 50%;
-    background: radial-gradient(circle at 35% 30%, #ff8a80 0%, #e53935 45%, #8e1414 100%);
-    box-shadow: 0 3px 4px rgba(0, 0, 0, 0.35);
-}
-.note-pink   .wb-magnet { background: radial-gradient(circle at 35% 30%, #90caf9 0%, #1e88e5 45%, #0d3c78 100%); }
-.note-blue   .wb-magnet { background: radial-gradient(circle at 35% 30%, #ffe082 0%, #f9a825 45%, #8a5a00 100%); }
-.note-green  .wb-magnet { background: radial-gradient(circle at 35% 30%, #ce93d8 0%, #8e24aa 45%, #4a0f5a 100%); }
-.note-orange .wb-magnet { background: radial-gradient(circle at 35% 30%, #a5d6a7 0%, #43a047 45%, #1b5e20 100%); }
-
-.wb-note-link {
-    color: inherit;
-    text-decoration: none;
-    display: block;
-}
-.wb-note-link:hover { color: inherit; }
-.wb-note-link:focus-visible { outline: 2px solid var(--wb-ink-blue); outline-offset: 4px; }
-
-.wb-note-title {
-    font-weight: 700;
-    font-size: 1.12rem;
-    line-height: 1.2;
-    overflow-wrap: anywhere;
-}
-.wb-bang {
-    font-family: var(--wb-marker-font);
-    color: var(--wb-ink-red);
-    margin-right: 0.25rem;
-}
-.wb-note-car {
-    margin-top: 2px;
-    font-size: 0.95rem;
-    color: #4a4a4a;
-}
-.wb-note-car strong { letter-spacing: 0.5px; }
-
-.wb-note-meta {
-    margin-top: 6px;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.1rem 0.75rem;
-    font-size: 0.95rem;
-    line-height: 1.25;
-}
-.wb-note-meta .bi { font-size: 0.85em; margin-right: 0.15rem; }
-.wb-due-overdue { color: var(--wb-ink-red); font-weight: 700; }
-.wb-due-soon    { color: var(--wb-ink-orange); font-weight: 700; }
-
-.wb-note-foot {
-    margin-top: 6px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 0.85rem;
-    color: #666;
-}
-
-/* Keep the title clear of the stamp */
-.wb-note.is-overdue .wb-note-title { padding-right: 64px; }
-
-/* "OVERDUE" scrawled across the corner */
-.wb-stamp {
-    position: absolute;
-    top: 6px;
-    right: 8px;
-    font-family: var(--wb-marker-font);
-    font-size: 0.85rem;
-    color: var(--wb-ink-red);
-    border: 2px solid var(--wb-ink-red);
-    border-radius: 4px 8px 3px 7px;
-    padding: 0 0.3rem;
-    transform: rotate(8deg);
-    opacity: 0.9;
-    pointer-events: none;
-}
-
-/* Done: faded, struck through in green marker */
-.wb-note.is-done { opacity: 0.6; }
-.wb-note.is-done .wb-note-title {
-    text-decoration: line-through;
-    text-decoration-color: var(--wb-ink-green);
-    text-decoration-thickness: 3px;
-}
-.wb-tick {
-    font-family: var(--wb-marker-font);
-    color: var(--wb-ink-green);
-    font-size: 1.4rem;
-    position: absolute;
-    right: 10px;
-    bottom: 4px;
-    transform: rotate(-8deg);
-}
-
-/* Drag states (SortableJS) */
-.wb-note.sortable-ghost { opacity: 0.35; }
-.wb-note.sortable-chosen { cursor: grabbing; }
-.wb-note.sortable-drag { transform: rotate(3deg) scale(1.03) !important; }
 
 /* ── Marker tray ───────────────────────────────────────── */
 .wb-tray {
@@ -478,36 +390,23 @@
 }
 
 /* ── Card detail page ──────────────────────────────────── */
-.wb-note-preview {
-    max-width: 340px;
-    margin: 10px auto 0;
-    cursor: default;
-}
 .wb-hand { font-family: var(--wb-hand-font); }
 .wb-marker-heading { font-family: var(--wb-marker-font); }
 
-/* ── Small screens: stack the columns ──────────────────── */
-@media (max-width: 991.98px) {
-    .wb-columns { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 22px; }
-    .wb-col:nth-child(3)::before { display: none; }
-}
+/* ── Small screens ─────────────────────────────────────── */
 @media (max-width: 575.98px) {
     .wb-frame { padding: 8px; margin: 0 -6px; }
-    .wb-board { padding: 14px 12px 18px; }
-    .wb-columns { grid-template-columns: minmax(0, 1fr); gap: 22px; }
-    .wb-col + .wb-col::before {
-        left: 4px; right: 4px; top: -12px; bottom: auto;
-        width: auto; height: 3px;
-        transform: rotate(-0.3deg);
-        display: block !important;
-    }
-    .wb-cards { min-height: 70px; }
-    .wb-empty { top: 58px; }
+    .wb-board { padding: 14px 12px 18px; min-height: 0; }
     .wb-tally { margin-left: 0; width: 100%; }
+    .wb-item { gap: 0.65rem; }
+    .wb-item-title { font-size: 1.15rem; }
+    .wb-item-tags { display: none; }
+    .wb-item-tags-inline { display: flex !important; }
     .wb-marker { width: 64px; }
     .wb-marker.m-green, .wb-marker.m-red { display: none; }
 }
+.wb-item-tags-inline { display: none; gap: 0.4rem; margin-top: 0.35rem; flex-wrap: wrap; }
 
 @media (prefers-reduced-motion: reduce) {
-    .wb-note, .wb-eraser { transition: none; }
+    .wb-check, .wb-eraser { transition: none; }
 }
