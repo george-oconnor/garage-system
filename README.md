@@ -65,7 +65,7 @@ Notes:
 
 ## Deployment
 
-Production runs on a Hetzner server (`georgeoc-web-host-01`) behind Cloudflare:
+Production runs on a Hetzner server behind Cloudflare:
 nginx (`nginx.conf`) proxies to gunicorn on port 8007, managed by supervisor
 (`supervisor.conf`). The app lives in `/home/george/garage-system/garage-system`.
 The repo copies of the nginx and supervisor configs are for reference only. The
