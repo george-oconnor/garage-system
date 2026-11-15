@@ -1,8 +1,7 @@
 from datetime import datetime, date as _date
 
-from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, abort
+from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import login_required
-from garagesystem.csrf import check_post_csrf
 
 from garagesystem import db
 from garagesystem.models import Car, Task, TaskPart, StockItem, TASK_STATUSES, PART_STATUSES
@@ -15,8 +14,6 @@ board = Blueprint('board', __name__)
 # Done cards stay on the board this long, then they're "wiped off".
 DONE_VISIBLE_DAYS = 14
 
-
-board.before_request(check_post_csrf)
 
 
 def _car_choices():

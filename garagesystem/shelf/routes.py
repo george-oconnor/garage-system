@@ -1,8 +1,7 @@
 from datetime import datetime
 
-from flask import Blueprint, render_template, request, redirect, url_for, flash, abort
+from flask import Blueprint, render_template, request, redirect, url_for, flash
 from flask_login import login_required
-from garagesystem.csrf import check_post_csrf
 
 from garagesystem import db
 from garagesystem.models import StockItem, Task, TaskPart, EventLineItem
@@ -10,8 +9,6 @@ from garagesystem.shelf.forms import StockItemForm, STOCK_CATEGORIES
 
 shelf = Blueprint('shelf', __name__)
 
-
-shelf.before_request(check_post_csrf)
 
 
 

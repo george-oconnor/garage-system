@@ -4,7 +4,6 @@ from datetime import date as _date
 
 from flask import Blueprint, render_template, request, redirect, url_for, flash, abort, send_file, current_app
 from flask_login import login_required
-from garagesystem.csrf import check_post_csrf
 
 from garagesystem import db
 from garagesystem.models import Car, FuelLog, MileageLog, MaintenanceSchedule, Task
@@ -14,8 +13,6 @@ from garagesystem.upkeep.history import generate_history_pdf
 
 upkeep = Blueprint('upkeep', __name__)
 
-
-upkeep.before_request(check_post_csrf)
 
 
 
