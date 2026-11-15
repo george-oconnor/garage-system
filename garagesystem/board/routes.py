@@ -6,7 +6,7 @@ from flask_login import login_required
 from garagesystem import db
 from garagesystem.models import Car, Task, TaskPart, StockItem, TASK_STATUSES, PART_STATUSES
 from garagesystem.board.forms import TaskForm, TaskPartForm
-from garagesystem.board.utils import sync_auto_tasks, task_urgency, _next_position
+from garagesystem.board.utils import sync_auto_tasks, task_urgency, sort_open_tasks, _next_position
 from garagesystem.cars.utils import convert_mileage_to_km
 
 board = Blueprint('board', __name__)
@@ -35,12 +35,7 @@ def view_board():
     today = _date.today()
     open_tasks = Task.query.filter(Task.status.in_(('todo', 'parts', 'doing'))).all()
     urgency = {t.id: task_urgency(t, today) for t in open_tasks}
-    # Most pressing first: overdue, due soon, in progress, waiting on parts,
-    # then everything else; within each, the earliest due date first.
-    rank = {'overdue': 0, 'soon': 1}
-    status_rank = {'doing': 0, 'parts': 1, 'todo': 2}
-    open_tasks.sort(key=lambda t: (rank.get(urgency[t.id], 2), status_rank[t.status],
-                                   t.due_date or _date.max, t.date_added))
+    open_tasks = sort_open_tasks(open_tasks, urgency)
 
     cutoff = datetime.utcnow() - timedelta(days=DONE_VISIBLE_DAYS)
     done_tasks = (Task.query.filter(Task.status == 'done', Task.completed_at >= cutoff)

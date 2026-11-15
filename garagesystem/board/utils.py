@@ -61,14 +61,19 @@ def car_due_specs(car, today=None):
     latest = car.latest_mileage
     specs = []
 
+    # The Service schedule item gets its own subject (rather than
+    # "schedule:<id>") so service cards keep the key they've always had.
     ns = insights['next_service']
-    if ns and not ns.get('booked_date') and ns.get('basis_date'):
+    service_item = car.service_item
+    if ns and not ns.get('booked_date') and (ns.get('basis_date') or ns.get('basis_mileage') is not None):
         km_left = (ns['due_mileage'] - latest) if (ns['due_mileage'] is not None and latest is not None) else None
         soon = ns['overdue'] or _date_soon(ns['due_date'], today) or (km_left is not None and km_left <= DUE_SOON_KM)
+        cycle = ns['basis_date'].isoformat() if ns.get('basis_date') else f"km{ns['basis_mileage']}"
         specs.append(_spec(
-            f'service:{car.id}', ns['basis_date'].isoformat(), 'service', 'Service due',
+            f'service:{car.id}', cycle, 'service', 'Service due',
             car_id=car.id, due_date=ns['due_date'], due_mileage=ns['due_mileage'],
             due_soon=soon, overdue=ns['overdue'],
+            schedule_id=service_item.id if service_item else None,
         ))
 
     nct = insights['nct']
@@ -102,6 +107,8 @@ def car_due_specs(car, today=None):
             ))
 
     for item in car.schedule_items:
+        if item.is_service:
+            continue  # covered by the service card above
         st = schedule_item_status(item, car, insights['annual_mileage'], today)
         if st['status'] == 'unknown':
             continue
@@ -209,6 +216,15 @@ def task_urgency(task, today=None):
     if (task.due_date and (task.due_date - today).days <= DUE_SOON_DAYS) or (km_left is not None and km_left <= DUE_SOON_KM):
         return 'soon'
     return None
+
+
+def sort_open_tasks(tasks, urgency):
+    """Order open jobs as the whiteboard lists them: overdue, due soon, in
+    progress, waiting on parts, then the rest; earliest due date first."""
+    rank = {'overdue': 0, 'soon': 1}
+    status_rank = {'doing': 0, 'parts': 1, 'todo': 2}
+    return sorted(tasks, key=lambda t: (rank.get(urgency.get(t.id), 2), status_rank.get(t.status, 3),
+                                        t.due_date or _date.max, t.date_added))
 
 
 # Event type to pre-select when a card is logged as a service event.

@@ -41,9 +41,10 @@ database at `instance/garage.db` and a development secret key.
   tax, insurance or a maintenance schedule item is due within 30 days or 1,000 km,
   or when shelf stock runs low (`garagesystem/board/utils.py`). A finished car job
   can be logged as a service event, prefilled from the job, with its parts turned
-  into line items.
+  into line items. Each car page shows that car's jobs in a read-only mini board.
 - **Maintenance schedule** (per car, **Schedule** tab): items with their own km and/or month interval.
-  Tick an item on an event to reset it.
+  Tick an item on an event to reset it. Every car has a **Service** item, which sets the service
+  interval and drives Next Service Due; Service events count towards it automatically.
 - **Motor tax and insurance renewals**: Tax and Insurance events have a "valid until"
   date, shown on the car's Insights panel.
 - **Fuel log** (per car, **Fuel** tab, or **Log fill-up** at the top of the car page): fill-ups give L/100km (full tank to full tank) and fuel's

@@ -116,7 +116,9 @@ RENEWAL_TYPES = ('Tax', 'Insurance')
 
 
 def _schedule_choices(car):
-    return [(i.id, i.name) for i in car.schedule_items]
+    # The Service item comes first; Service events count towards it anyway.
+    items = sorted(car.schedule_items, key=lambda i: (not i.is_service, i.name))
+    return [(i.id, f'{i.name} (automatic for Service events)' if i.is_service else i.name) for i in items]
 
 
 def _set_schedule_items(event, car, ids):

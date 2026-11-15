@@ -162,3 +162,31 @@ def test_deleting_event_returns_stock(client, db):
     db.session.commit()
     client.post(f'/events/{event.id}/delete')
     assert db.session.get(StockItem, oil.id).quantity == 5
+
+
+def test_service_item_raises_one_service_card(db):
+    car = make_car(year=TODAY.year)
+    item = MaintenanceSchedule(car_id=car.id, name='Service', interval_months=12, is_service=True,
+                               last_done_date=TODAY - timedelta(days=360))
+    db.session.add(item)
+    db.session.commit()
+
+    sync_auto_tasks()
+    cards = Task.query.filter(Task.car_id == car.id).all()
+    assert [(c.source, c.title, c.schedule_id) for c in cards] == [('service', 'Service due', item.id)]
+
+    # Logging a Service event moves it on to the next cycle and closes the card
+    make_event(car, TODAY, 'Service')
+    db.session.commit()
+    sync_auto_tasks()
+    db.session.refresh(cards[0])
+    assert cards[0].status == 'done'
+
+
+def test_service_item_cannot_be_removed(client, db):
+    car = make_car()
+    item = MaintenanceSchedule(car_id=car.id, name='Service', interval_km=10000, is_service=True)
+    db.session.add(item)
+    db.session.commit()
+    client.post(f'/cars/{car.id}/schedule/{item.id}/delete')
+    assert db.session.get(MaintenanceSchedule, item.id) is not None

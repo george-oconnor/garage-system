@@ -81,8 +81,6 @@ class EditCarForm(FlaskForm):
     purchase_price = FloatField('Purchase Price (€)', validators=[Optional()])
     purchase_mileage = IntegerField('Mileage at Purchase', validators=[Optional()])
     purchase_mileage_unit = SelectField('Unit', choices=MILEAGE_UNITS, default='km', validators=[Optional()])
-    service_interval_km = IntegerField('Service Interval (km)', validators=[Optional(), NumberRange(min=1)])
-    service_interval_months = IntegerField('Service Interval (months)', validators=[Optional(), NumberRange(min=1)])
     notes = TextAreaField('Notes', validators=[Optional()])
     image = FileField('Photo', validators=[Optional(), FileAllowed(['jpg', 'jpeg', 'png', 'webp'], 'Images only')])
     submit = SubmitField('Update Car')

@@ -1,4 +1,5 @@
 {% extends "layout.html" %}
+{% block head %}{% include 'board/_fonts.html' %}{% endblock head %}
 {% block content %}
 
 {% set event_type_badges = {
@@ -92,6 +93,33 @@
         {% endif %}
     </div>
 </div>
+
+{# ---------- This car's jobs, as they appear on the whiteboard (read-only) ---------- #}
+{% set mini_limit = 6 %}
+<section class="wb-frame wb-mini mb-4" aria-labelledby="miniBoardTitle">
+    <span class="wb-corner tl"></span><span class="wb-corner tr"></span>
+    <span class="wb-corner bl"></span><span class="wb-corner br"></span>
+    <div class="wb-board">
+        <div class="wb-header">
+            <h2 class="wb-title" id="miniBoardTitle">On the whiteboard</h2>
+            <a href="{{ url_for('board.view_board', show=car.id) }}" class="wb-mini-link">Open the whiteboard <i class="bi bi-arrow-right"></i></a>
+        </div>
+        {% if open_tasks %}
+        <ul class="wb-list">
+            {% set readonly = true %}{% set hide_car = true %}{% set urgency = task_urgencies %}
+            {% for t in open_tasks[:mini_limit] %}{% include 'board/_item.html' %}{% endfor %}
+        </ul>
+        {% else %}
+        <p class="wb-empty">Nothing on the board for this car.</p>
+        {% endif %}
+        <div class="wb-mini-foot">
+            <a href="{{ url_for('board.view_board', add=1, car=car.id) }}">+ add a job for this car</a>
+            {% if open_tasks|length > mini_limit %}
+            <a href="{{ url_for('board.view_board', show=car.id) }}">+ {{ open_tasks|length - mini_limit }} more on the board</a>
+            {% endif %}
+        </div>
+    </div>
+</section>
 
 <div class="row g-4">
     <!-- Left column: Car details + purchase info -->
@@ -225,7 +253,7 @@
                                 {% elif ns.due_mileage %}
                                     at {{ '{:,}'.format(ns.due_mileage) }} km
                                 {% elif not ns.due_date %}
-                                    Set a service interval to estimate
+                                    <a href="#schedule" class="text-decoration-none">Set the service interval</a> to estimate
                                 {% endif %}
                             </div>
                             {% if ns.booked_date and not ns.booked %}
@@ -233,7 +261,7 @@
                             {% endif %}
                         {% else %}
                         <div class="fs-5 fw-bold text-muted">—</div>
-                        <div class="small text-muted">Log a Service event to estimate</div>
+                        <div class="small text-muted">Log a Service event, or set when it was last serviced in the <a href="#schedule" class="text-decoration-none">schedule</a></div>
                         {% endif %}
                     </div>
 
@@ -324,41 +352,6 @@
                     </div>
                 </div>
             </div>
-        </div>
-
-        {# ---------- On the whiteboard ---------- #}
-        <div class="card mb-4">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h6 class="mb-0"><i class="bi bi-easel me-2"></i>On the Whiteboard</h6>
-                <div class="d-flex gap-2">
-                    <a href="{{ url_for('board.view_board', add=1, car=car.id) }}" class="btn btn-sm btn-outline-primary" title="Add a job for this car">
-                        <i class="bi bi-plus"></i>
-                    </a>
-                    <a href="{{ url_for('board.view_board') }}" class="btn btn-sm btn-outline-secondary">Open board</a>
-                </div>
-            </div>
-            {% if open_tasks %}
-            {% set status_names = {'todo': 'To do', 'parts': 'Waiting on parts', 'doing': 'In progress'} %}
-            <ul class="list-group list-group-flush">
-                {% for t in open_tasks %}
-                <li class="list-group-item d-flex justify-content-between align-items-center gap-2">
-                    <div>
-                        {% if t.priority == 'high' %}<i class="bi bi-exclamation-circle-fill text-danger me-1" title="High priority"></i>{% endif %}
-                        <a href="{{ url_for('board.view_task', task_id=t.id) }}" class="text-decoration-none text-dark fw-semibold">{{ t.title }}</a>
-                        {% if t.is_auto %}<i class="bi bi-magic text-muted small ms-1" title="Automatic reminder"></i>{% endif %}
-                        <div class="small text-muted">
-                            {% if t.due_date %}by {{ t.due_date.strftime('%d/%m/%Y') }}{% endif %}
-                            {% if t.due_date and t.due_mileage %} or {% endif %}
-                            {% if t.due_mileage %}at {{ '{:,}'.format(t.due_mileage) }} km{% endif %}
-                        </div>
-                    </div>
-                    <span class="badge bg-light text-dark border text-nowrap">{{ status_names.get(t.status, t.status) }}</span>
-                </li>
-                {% endfor %}
-            </ul>
-            {% else %}
-            <div class="card-body text-muted small">Nothing outstanding for this car.</div>
-            {% endif %}
         </div>
 
         {# ---------- Service history · Fuel · Maintenance schedule ---------- #}
@@ -537,6 +530,7 @@
                         <tr>
                             <td class="ps-3">
                                 <a href="{{ url_for('upkeep.edit_schedule', car_id=car.id, item_id=item.id) }}" class="text-decoration-none text-dark fw-semibold">{{ item.name }}</a>
+                                {% if item.is_service %}<i class="bi bi-wrench-adjustable text-primary ms-1" title="Next Service Due comes from this item. Service events count automatically."></i>{% endif %}
                                 {% if item.notes %}<div class="small text-muted">{{ item.notes }}</div>{% endif %}
                             </td>
                             <td class="small text-nowrap">
@@ -563,7 +557,8 @@
                 </table>
             </div>
             <div class="card-footer small text-muted">
-                When you log an event, tick the items it covered to reset them. Items due within 30 days or 1,000 km go on the whiteboard.
+                Service events reset <strong>Service</strong> on their own. For the other items, tick the ones an event covered when you log it.
+                Anything due within 30 days or 1,000 km goes on the whiteboard.
             </div>
             {% else %}
             <div class="card-body text-muted small">
@@ -801,11 +796,15 @@
     // #fuel / #schedule / #history open that tab (the fuel and schedule forms
     // redirect back here with one), and switching tabs updates the hash.
     var tabs = { history: 'history-tab', fuel: 'fuel-tab', schedule: 'schedule-tab' };
-    var hash = location.hash.replace('#', '');
-    if (tabs[hash]) {
+    function openFromHash() {
+        var hash = location.hash.replace('#', '');
+        if (!tabs[hash]) return;
         bootstrap.Tab.getOrCreateInstance(document.getElementById(tabs[hash])).show();
         document.getElementById('records').scrollIntoView({ block: 'start' });
     }
+    openFromHash();
+    // In-page links such as "Set the service interval" (#schedule)
+    window.addEventListener('hashchange', openFromHash);
     Object.keys(tabs).forEach(function (name) {
         document.getElementById(tabs[name]).addEventListener('shown.bs.tab', function () {
             history.replaceState(null, '', '#' + name);

@@ -4,7 +4,7 @@ from datetime import datetime, date
 import os, uuid
 
 from garagesystem import db
-from garagesystem.models import Car, MileageLog
+from garagesystem.models import Car, MileageLog, MaintenanceSchedule
 from garagesystem.cars.forms import PlateSearchForm, AddCarForm, EditCarForm, AddMileageForm
 from garagesystem.cars.utils import (
     parse_irish_plate, lookup_vehicle_api, normalize_fuel_type, normalize_transmission,
@@ -14,6 +14,9 @@ from garagesystem.cars.utils import (
 from garagesystem.upkeep.forms import FuelLogForm, ScheduleForm, SCHEDULE_PRESETS
 
 cars = Blueprint('cars', __name__)
+
+SERVICE_DEFAULT_KM = 10000
+SERVICE_DEFAULT_MONTHS = 12
 
 
 def _sync_purchase_mileage_log(car):
@@ -144,6 +147,10 @@ def add_car_details():
         db.session.add(car)
         db.session.flush()  # assign car.id before creating related rows
         _sync_purchase_mileage_log(car)
+        # Every car's schedule starts with its regular service, at a common
+        # manufacturer-agnostic interval the owner can then adjust.
+        db.session.add(MaintenanceSchedule(car_id=car.id, name='Service', interval_km=SERVICE_DEFAULT_KM,
+                                           interval_months=SERVICE_DEFAULT_MONTHS, is_service=True))
         db.session.commit()
         session.pop('new_car_prefill', None)
         flash(f'{car.registration} added successfully.', 'success')
@@ -173,20 +180,23 @@ def view_car(car_id):
     insights = compute_car_insights(car)
     schedule = [(item, schedule_item_status(item, car, insights['annual_mileage'])) for item in car.schedule_items]
     status_rank = {'overdue': 0, 'due_soon': 1, 'ok': 2, 'unknown': 3}
-    schedule.sort(key=lambda r: (status_rank[r[1]['status']], r[1]['due_date'] or date.max, r[0].name))
+    schedule.sort(key=lambda r: (status_rank[r[1]['status']], not r[0].is_service,
+                                 r[1]['due_date'] or date.max, r[0].name))
     have = {i.name.lower() for i in car.schedule_items}
 
     # Reminder cards are raised on page view, so the car page lists the same
     # cards the whiteboard would show.
-    from garagesystem.board.utils import sync_auto_tasks
+    from garagesystem.board.utils import sync_auto_tasks, task_urgency, sort_open_tasks
     sync_auto_tasks()
+    task_urgencies = {t.id: task_urgency(t) for t in car.open_tasks}
 
     return render_template(
         'cars/view_car.html', title=str(car), car=car, mileage_form=mileage_form,
         event_mileages=event_mileages, insights=insights,
         schedule=schedule, schedule_form=ScheduleForm(prefix='sched'),
         presets=[p for p in SCHEDULE_PRESETS if p[0].lower() not in have],
-        fuel_form=FuelLogForm(), open_tasks=sorted(car.open_tasks, key=lambda t: (t.status != 'doing', t.position)),
+        fuel_form=FuelLogForm(), open_tasks=sort_open_tasks(car.open_tasks, task_urgencies),
+        task_urgencies=task_urgencies,
     )
 
 
@@ -220,8 +230,6 @@ def edit_car(car_id):
             car.purchase_date = form.purchase_date.data
             car.purchase_price = form.purchase_price.data
             car.purchase_mileage = convert_mileage_to_km(form.purchase_mileage.data, form.purchase_mileage_unit.data)
-            car.service_interval_km = form.service_interval_km.data
-            car.service_interval_months = form.service_interval_months.data
             car.notes = form.notes.data or None
             _sync_purchase_mileage_log(car)
             # Handle custom image upload

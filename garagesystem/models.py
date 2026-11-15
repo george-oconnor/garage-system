@@ -52,10 +52,6 @@ class Car(db.Model):
     purchase_date = db.Column(db.Date, nullable=True)
     purchase_price = db.Column(db.Float, nullable=True)
     purchase_mileage = db.Column(db.Integer, nullable=True)
-    # Assumed service schedule, used to project the next service due date/mileage
-    # on the Insights panel. Defaults to a common manufacturer-agnostic interval.
-    service_interval_km = db.Column(db.Integer, nullable=True, default=10000, server_default='10000')
-    service_interval_months = db.Column(db.Integer, nullable=True, default=12, server_default='12')
     notes = db.Column(db.Text, nullable=True)
     lookup_data = db.Column(db.Text, nullable=True)      # raw JSON from vehicle lookup API
     image_url = db.Column(db.Text, nullable=True)        # thumbnail URL from Wikimedia Commons
@@ -110,6 +106,12 @@ class Car(db.Model):
     @property
     def total_fuel_spend(self):
         return round(sum(f.total_cost or 0 for f in self.fuel_logs), 2)
+
+    @property
+    def service_item(self):
+        """The car's "Service" maintenance schedule item, which sets the service
+        interval and drives Next Service Due (see MaintenanceSchedule.is_service)."""
+        return next((i for i in self.schedule_items if i.is_service), None)
 
     @property
     def open_tasks(self):
@@ -270,6 +272,10 @@ class MaintenanceSchedule(db.Model):
     last_done_date = db.Column(db.Date, nullable=True)
     last_done_mileage = db.Column(db.Integer, nullable=True)
     notes = db.Column(db.String(300), nullable=True)
+    # The car's regular service. Every car has exactly one, created with the car.
+    # Service events count towards it without being ticked, and its status is
+    # what the Insights panel shows as Next Service Due.
+    is_service = db.Column(db.Boolean, nullable=False, default=False, server_default='0')
     date_added = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 
     def __repr__(self):
